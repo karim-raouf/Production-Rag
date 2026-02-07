@@ -1,4 +1,4 @@
-# 🤖 Generation Web Scraping Practice
+# Production Ready RAG System
 
 A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, and document ingestion support.
 
