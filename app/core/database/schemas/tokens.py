@@ -18,6 +18,9 @@ class TokenBase(BaseModel):
 class TokenCreate(TokenBase):
     pass
 
+class TokenUpdate(TokenBase):
+    pass
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "Bearer"
