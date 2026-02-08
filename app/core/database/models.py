@@ -34,8 +34,8 @@ class User(Base):
 class Token(Base):
     __tablename__ = "tokens"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     expires_at: Mapped[datetime] = mapped_column()
     is_active: Mapped[bool] = mapped_column(default=True)
     ip_address: Mapped[str | None] = mapped_column(String(length=255))

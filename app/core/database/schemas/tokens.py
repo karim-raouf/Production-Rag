@@ -1,8 +1,10 @@
 from datetime import datetime
 from pydantic import BaseModel, IPvAnyAddress, field_serializer
+import uuid
+
 
 class TokenBase(BaseModel):
-    user_id: int
+    user_id: uuid.uuid4
     expires_at: datetime
     is_active: bool = True
     ip_address: IPvAnyAddress | None = None
