@@ -19,10 +19,13 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     role: Mapped[str] = mapped_column(default="USER")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+        DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        insert_default=func.now(),
+        onupdate=func.now(),
     )
 
     tokens: Mapped[list["Token"]] = relationship("Token", back_populates="user")
@@ -38,14 +41,17 @@ class Token(Base):
 
     id: Mapped[UUID4] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[UUID4] = mapped_column(ForeignKey("users.id"))
-    expires_at: Mapped[datetime] = mapped_column()
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(default=True)
     ip_address: Mapped[str | None] = mapped_column(String(length=255))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+        DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        insert_default=func.now(),
+        onupdate=func.now(),
     )
 
     user: Mapped["User"] = relationship("User", back_populates="tokens")
@@ -64,10 +70,13 @@ class Conversation(Base):
     title: Mapped[str] = mapped_column()
     model_type: Mapped[str] = mapped_column(index=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+        DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        insert_default=func.now(),
+        onupdate=func.now(),
     )
 
     messages: Mapped[list["Message"]] = relationship(
@@ -94,10 +103,13 @@ class Message(Base):
     is_success: Mapped[bool | None] = mapped_column()
     status_code: Mapped[int | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+        DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.now(),
+        insert_default=func.now(),
+        onupdate=func.now(),
     )
 
     conversation: Mapped["Conversation"] = relationship(

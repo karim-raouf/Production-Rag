@@ -1,16 +1,23 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
+from typing import Annotated
 
 from ...schemas import (
     ConversationOut,
     ConversationCreate,
+    ConversationCreateRequest,
     ConversationUpdate,
     MessageOut,
 )
 from ...services import ConversationService
 from ...dependencies import DBSessionDep
 from .dependencies import GetConversationDep
+from app.modules.authentication.dependencies import get_current_user_dep
+from ...models import User
 
-app = APIRouter(prefix="/api/conversations")
+app = APIRouter(prefix="/conversations")
+
+# Dependency to get the current authenticated user
+CurrentUserDep = Annotated[User, Depends(get_current_user_dep)]
 
 
 @app.get("")
@@ -30,9 +37,15 @@ async def get_conversation_controller(
 
 @app.post("", status_code=status.HTTP_201_CREATED)
 async def create_conversation_controller(
-    session: DBSessionDep, conversation: ConversationCreate
+    session: DBSessionDep,
+    current_user: CurrentUserDep,
+    conversation: ConversationCreateRequest,
 ) -> ConversationOut:
-    new_conversation = await ConversationService(session).create(conversation)
+    # Inject user_id from authenticated user
+    conversation_with_user = ConversationCreate(
+        **conversation.model_dump(), user_id=current_user.id
+    )
+    new_conversation = await ConversationService(session).create(conversation_with_user)
     return ConversationOut.model_validate(new_conversation)
 
 

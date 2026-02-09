@@ -10,7 +10,7 @@ from ...core.database.dependencies import DBSessionDep
 from ...core.database.repositories import MessageRepository
 from ...core.database.schemas import MessageCreate
 from ...core.database.routers.conversations.dependencies import GetConversationDep
-from ...basic_auth import AuthenticatedUserDep, authenticate_user
+
 
 from typing import AsyncGenerator
 
@@ -25,7 +25,6 @@ import re
 router = APIRouter(
     prefix="/text-generation",
     tags=["Text Generation"],
-    dependencies=[Depends(authenticate_user)]
 )
 
 
@@ -112,10 +111,9 @@ async def stream_text_to_text(
                 yield chunk
         finally:
             final_response = "".join(stream_buffer)
-            
 
             final_response = re.sub(r"data: |\n\n|\[DONE\]", "", final_response)
-
+            
             await MessageRepository(session).create(
                 MessageCreate.model_construct(
                     url_content=urls_content,
@@ -131,7 +129,7 @@ async def stream_text_to_text(
         media_type="text/event-stream",
         headers={
             "X-Accel-Buffering": "no",  # Disable nginx buffering
-        }
+        },
     )
 
 

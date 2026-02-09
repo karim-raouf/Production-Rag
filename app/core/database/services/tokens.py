@@ -1,3 +1,4 @@
+from loguru import logger
 from datetime import UTC, datetime, timedelta
 from ....modules.authentication.exceptions import UnauthorizedException
 from jose import JWTError, jwt
@@ -53,17 +54,21 @@ class TokenService(TokenRepository):
                 algorithms=[self.settings.jwt_algorithm],
             )
         except JWTError as e:
-            # log exception : logging.warning(f"JWT decode failed: {type(e).__name__}: {e}")
+            logger.error(f"decode: JWT decode failed - {type(e).__name__}: {e}")
             raise UnauthorizedException
 
     async def validate(self, token_id: UUID4):
         if not (token := await self.get(token_id)):
+            logger.error(f"validate: Token not found with id '{token_id}'")
             raise UnauthorizedException
         if not token.is_active:
+            logger.error(f"validate: Token '{token_id}' is inactive/revoked")
             raise UnauthorizedException
         if token.expires_at < datetime.now(UTC):
+            logger.error(
+                f"validate: Token '{token_id}' has expired at {token.expires_at}"
+            )
             await self.deactivate(token.id)
             raise UnauthorizedException
-        
+
         return True
-            
