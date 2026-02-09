@@ -57,4 +57,11 @@ class TokenService(TokenRepository):
             raise UnauthorizedException
 
     async def validate(self, token_id: UUID4):
-        return (token := await self.get(token_id)) is not None and token.is_active
+        if not (token := await self.get(token_id)):
+            raise UnauthorizedException
+        if token.expires_at < datetime.now(UTC):
+            await self.update(token.id, TokenUpdate(is_active=False))
+            raise UnauthorizedException
+        
+        return (token is not None and token.is_active)
+            

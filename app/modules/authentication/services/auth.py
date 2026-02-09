@@ -2,10 +2,14 @@ from ....core.database.dependencies import DBSessionDep
 from ....core.database.models import Token, User
 from ....core.database.schemas import UserCreate, UserInDB
 from ..exceptions import AlreadyRegisteredException, UnauthorizedException
-from ..dependencies import LoginFormDep, AuthHeaderDep
+from ..dependencies import AuthHeaderDep
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+    OAuth2PasswordRequestForm
+)
 from ....core.database.services import TokenService, UserService
 from .password import PasswordService
-from ....core.database.schemas import UserCreate, UserInDB
 from uuid import UUID
 
 class AuthService:
@@ -23,7 +27,7 @@ class AuthService:
             UserInDB(username=user.username, hashed_password=hashed_password)
         )
 
-    async def authenticate_user(self, form_data: LoginFormDep) -> Token:
+    async def authenticate_user(self, form_data: OAuth2PasswordRequestForm) -> Token:
         if not (user := await self.user_service.get_user(form_data.username)):
             raise UnauthorizedException
         if not await self.password_service.verify_password(form_data.password, user.hashed_password):
