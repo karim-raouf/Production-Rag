@@ -3,8 +3,9 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-
+#AuthZ Header =  Basic <username:password>
 security = HTTPBasic()
+
 username_bytes = b"karim"
 password_bytes = b"karim"
 

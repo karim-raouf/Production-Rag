@@ -16,8 +16,13 @@ class AppSettings(BaseSettings):
 
     vllm_api_key: Annotated[str, Field(alias="VLLM_API_KEY")]
     ollama_api_key: Annotated[str, Field(alias="OLLAMA_API_KEY")]
-    
+
     postgres_url: Annotated[str, Field(alias="POSTGRES_URL")]
+
+    # JWT Settings
+    jwt_secret_key: Annotated[str, Field(alias="JWT_SECRET_KEY")]
+    jwt_algorithm: Annotated[str, Field(alias="JWT_ALGORITHM")]
+    jwt_expires_in_minutes: Annotated[int, Field(alias="JWT_EXPIRES_IN_MINUTES")]
 
 
 @lru_cache
