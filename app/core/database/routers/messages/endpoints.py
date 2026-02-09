@@ -7,7 +7,7 @@ from ...dependencies import DBSessionDep
 from .dependencies import GetMessageDep
 
 
-app = APIRouter(prefix="/api/messages")
+app = APIRouter(prefix="/messages")
 
 
 @app.get("")

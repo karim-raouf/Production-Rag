@@ -11,7 +11,6 @@ from pydantic import (
 )
 
 
-
 @validate_call
 def validate_password(password: str) -> str:
     validations = [
@@ -35,9 +34,8 @@ def validate_password(password: str) -> str:
     return password
 
 
-
 ValidPassword = Annotated[
-    str, Field(min_length=8, max_digits=64), AfterValidator(validate_password)
+    str, Field(min_length=8, max_length=64), AfterValidator(validate_password)
 ]
 
 

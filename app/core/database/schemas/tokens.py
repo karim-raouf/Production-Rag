@@ -9,18 +9,24 @@ class TokenBase(BaseModel):
     ip_address: IPvAnyAddress | None = None
 
     @field_serializer("ip_address")
-    def serialize_ip(
-        self, 
-        ip: IPvAnyAddress | None
-    ) -> str | None:
+    def serialize_ip(self, ip: IPvAnyAddress | None) -> str | None:
         return str(ip) if ip else None
 
 
 class TokenCreate(TokenBase):
     pass
 
-class TokenUpdate(TokenBase):
-    pass
+
+class TokenUpdate(BaseModel):
+    user_id: UUID4 | None = None
+    expires_at: datetime | None = None
+    is_active: bool | None = None
+    ip_address: IPvAnyAddress | None = None
+
+    @field_serializer("ip_address")
+    def serialize_ip(self, ip: IPvAnyAddress | None) -> str | None:
+        return str(ip) if ip else None
+
 
 class TokenOut(BaseModel):
     access_token: str
