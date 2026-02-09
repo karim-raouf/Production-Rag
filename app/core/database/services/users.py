@@ -1,7 +1,6 @@
 from ..repositories import UserRepository
 from ..models import User
 from sqlalchemy import select
-from pydantic import EmailStr
 
 class UserService(UserRepository):
     async def get_user(
