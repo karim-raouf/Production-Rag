@@ -7,7 +7,7 @@ from fastapi import Depends
 from ..dependencies import LoginFormDep, AuthHeaderDep
 from ....core.database.services import TokenService, UserService
 from .password import PasswordService
-
+from ....core.database.schemas import UserCreate, UserInDB
 
 
 class AuthService:
@@ -16,8 +16,8 @@ class AuthService:
         self.token_service = TokenService(session)
         self.user_service = UserService(session)
 
-    async def register_user():
-        pass
+    async def register_user(self, user: UserCreate):
+        if await 
 
     async def authenticate_user():
         pass

@@ -17,7 +17,7 @@ app = APIRouter(prefix="/api/conversations")
 async def list_conversation_controller(
     session: DBSessionDep, skip: int = 0, take: int = 100
 ) -> list[ConversationOut]:
-    conversations = await ConversationService(session).list(skip=skip, take=take)
+    conversations = await ConversationService(session).get_all(skip=skip, take=take)
     return [ConversationOut.model_validate(c) for c in conversations]
 
 

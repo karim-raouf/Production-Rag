@@ -3,30 +3,25 @@ from .interfaces import Repository
 from ..schemas.conversations import ConversationCreate, ConversationUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from collections.abc import Sequence
 class ConversationRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list(
+    async def get_all(
         self, 
         skip: int, 
         take: int
-    ) -> list[Conversation] | list[None]:
-        result = await self.session.execute(
-            select(Conversation).offset(skip).limit(take)
-        )
-        return result.scalars().all()
+    ) -> Sequence[Conversation]:
+        query = select(Conversation).offset(skip).limit(take)
+        return self.session.scalars(query).all()
 
 
     async def get(
         self, 
         conversation_id: int
     ) -> Conversation | None:
-        result = await self.session.execute(
-            select(Conversation).where(Conversation.id == conversation_id)
-        )
-        return result.scalars().first()
+        return await self.session.get(Conversation, conversation_id)
 
 
     async def create(

@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from collections.abc import Sequence
 
 
-class Repository(ABC) :
+class Repository(ABC):
     @abstractmethod
-    async def list(self) -> list[Any]:
+    async def get_all(self) -> Sequence[Any]:
         pass
 
     @abstractmethod
