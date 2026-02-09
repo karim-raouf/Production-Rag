@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from sqlalchemy import DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
+from pydantic import UUID4
 
 class Base(DeclarativeBase):
     pass
@@ -11,7 +11,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[UUID4] = mapped_column(primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(length=255), unique=True)
     hashed_password: Mapped[str] = mapped_column(String(length=255))
     is_active: Mapped[bool] = mapped_column(default=True)
@@ -34,8 +34,8 @@ class User(Base):
 class Token(Base):
     __tablename__ = "tokens"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    id: Mapped[UUID4] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[UUID4] = mapped_column(ForeignKey("users.id"))
     expires_at: Mapped[datetime] = mapped_column()
     is_active: Mapped[bool] = mapped_column(default=True)
     ip_address: Mapped[str | None] = mapped_column(String(length=255))
@@ -58,7 +58,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    user_id: Mapped[UUID4] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE")
     )
     title: Mapped[str] = mapped_column()

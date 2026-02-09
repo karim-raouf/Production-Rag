@@ -62,6 +62,7 @@ class UserCreate(UserBase):
 class UserInDB(UserBase):
     hashed_password: str
 
+
 class UserOut(UserBase):
     id: UUID4
     created_at: datetime

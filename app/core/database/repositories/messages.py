@@ -45,7 +45,7 @@ class MessageRepository(Repository):
         message: Message,
         updated_message: MessageUpdate
     ) -> Message:
-        for key, value in updated_message.model_dump().items():
+        for key, value in updated_message.model_dump(exclude_unset=True).items():
             setattr(message, key, value)
         await self.session.commit()
         await self.session.refresh(message)
@@ -55,5 +55,5 @@ class MessageRepository(Repository):
         self,
         message: Message
     ) -> None:
-        await self.session.delete(message)
+        self.session.delete(message)
         await self.session.commit()

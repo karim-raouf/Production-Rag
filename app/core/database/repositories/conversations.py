@@ -44,7 +44,7 @@ class ConversationRepository(Repository):
         conversation: Conversation, 
         updated_conversation: ConversationUpdate
     ) -> Conversation:
-        for key, value in updated_conversation.model_dump().items():
+        for key, value in updated_conversation.model_dump(exclude_unset=True).items():
             setattr(conversation, key, value)
         await self.session.commit()
         await self.session.refresh(conversation)
@@ -55,5 +55,5 @@ class ConversationRepository(Repository):
         self, 
         conversation: Conversation
     ) -> None:
-        await self.session.delete(conversation)
+        self.session.delete(conversation)
         await self.session.commit()

@@ -59,7 +59,6 @@ class TokenRepository(Repository):
         self, 
         token_id: int
     ) -> None:
-        if not (token := self.get(token_id)):
-            return None
-        await self.session.delete(token)
+        token = self.get(token_id)
+        self.session.delete(token)
         await self.session.commit()

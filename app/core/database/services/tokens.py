@@ -3,7 +3,7 @@ from ....modules.authentication.exceptions import UnauthorizedException
 from jose import JWTError, jwt
 from ..repositories import TokenRepository
 from ..schemas import TokenCreate, TokenUpdate
-import uuid
+from pydantic import UUID4
 
 class TokenService(TokenRepository):
     secret_key = "your_secret_key"
@@ -32,7 +32,7 @@ class TokenService(TokenRepository):
 
     async def deactivate(
         self, 
-        token_id: uuid.UUID
+        token_id: UUID4
     ) -> None:
         await self.update(token_id, TokenUpdate(is_active=False))
 
@@ -49,6 +49,6 @@ class TokenService(TokenRepository):
 
     async def validate(
         self,
-        token_id: uuid.UUID
+        token_id: UUID4
     ):
         return (token := self.get(token_id)) is not None and token.is_active
