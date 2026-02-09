@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, UUID4
 
 
 class ConversationBase(BaseModel):
@@ -10,7 +10,7 @@ class ConversationBase(BaseModel):
 
 
 class ConversationCreate(ConversationBase):
-    pass
+    user_id: UUID4
 
 
 class ConversationUpdate(ConversationBase):

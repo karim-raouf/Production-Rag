@@ -12,7 +12,8 @@ class TokenRepository(Repository):
 
     async def get_all(self, skip: int, take: int) -> Sequence[Token]:
         query = select(Token).offset(skip).limit(take)
-        return self.session.scalars(query).all()
+        result = await self.session.scalars(query)
+        return result.all()
 
     async def get(self, token_id: int) -> Token | None:
         return await self.session.get(Token, token_id)
@@ -25,7 +26,7 @@ class TokenRepository(Repository):
         return new_token
 
     async def update(self, token_id: int, updated_token: TokenUpdate) -> Token | None:
-        if not (token := self.get(token_id)):
+        if not (token := await self.get(token_id)):
             return None
 
         for key, value in updated_token.model_dump(exclude_unset=True).items():
@@ -36,6 +37,6 @@ class TokenRepository(Repository):
         return token
 
     async def delete(self, token_id: int) -> None:
-        token = self.get(token_id)
-        self.session.delete(token)
+        token = await self.get(token_id)
+        await self.session.delete(token)
         await self.session.commit()

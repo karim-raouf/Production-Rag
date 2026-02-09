@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict
 class MessageBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    url_content: str
-    rag_content: str
+    url_content: str | None = None
+    rag_content: str | None = None
     request_content: str
     response_content: str
     conversation_id: int

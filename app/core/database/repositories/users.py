@@ -13,7 +13,8 @@ class UserRepository(Repository):
 
     async def get_all(self, skip: int, take: int) -> Sequence[User]:
         query = select(User).offset(skip).limit(take)
-        return self.session.scalars(query).all()
+        result = await self.session.scalars(query)
+        return result.all()
 
     async def get(self, user_id: UUID4) -> User | None:
         return await self.session.get(User, user_id)
@@ -26,7 +27,7 @@ class UserRepository(Repository):
         return new_user
 
     async def update(self, user_id: UUID4, updated_user: UserInDB) -> User | None:
-        if not (user := self.get(user_id)):
+        if not (user := await self.get(user_id)):
             return None
         for key, value in updated_user.model_dump(exclude_unset=True).items():
             setattr(user, key, value)
@@ -35,6 +36,6 @@ class UserRepository(Repository):
         return user
 
     async def delete(self, user_id: UUID4) -> None:
-        user = self.get(user_id)
-        self.session.delete(user)
+        user = await self.get(user_id)
+        await self.session.delete(user)
         await self.session.commit()

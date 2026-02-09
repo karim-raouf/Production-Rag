@@ -1,5 +1,4 @@
 from typing import Annotated
-from ...core.database.models import User
 from fastapi import APIRouter, Depends
 from ...core.database.schemas import TokenOut, UserOut, UserCreate
 from .services import AuthService

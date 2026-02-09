@@ -23,7 +23,7 @@ from loguru import logger
 import re
 
 router = APIRouter(
-    prefix="/api/text-generation",
+    prefix="/text-generation",
     tags=["Text Generation"],
     dependencies=[Depends(authenticate_user)]
 )

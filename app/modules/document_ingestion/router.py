@@ -6,7 +6,7 @@ from app.core.config import AppSettings, get_settings
 
 
 router = APIRouter(
-    prefix="/api/assets/documents",
+    prefix="/assets/documents",
     tags=["Document Ingestion"],
 )
 

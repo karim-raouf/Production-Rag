@@ -12,7 +12,8 @@ class MessageRepository(Repository):
 
     async def get_all(self, skip: int, take: int) -> Sequence[Message]:
         query = select(Message).offset(skip).limit(take)
-        return self.session.scalars(query).all()
+        result = await self.session.scalars(query)
+        return result.all()
 
     async def get(self, message_id: int) -> Message | None:
         return await self.session.get(Message, message_id)

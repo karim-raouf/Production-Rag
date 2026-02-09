@@ -1,6 +1,6 @@
 import asyncio
 import platform
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, APIRouter, Depends
 
 # Fix for asyncpg on Windows
 if platform.system() == "Windows":
@@ -23,6 +23,9 @@ from app.modules.text_generation.infrastructure.model_lifecycle import (
     clear_models_at_shutdown,
 )
 from .basic_auth import AuthenticatedUserDep
+from .modules.authentication.dependencies import get_current_user_dep
+from .modules.authentication.router import router as auth_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -93,15 +96,23 @@ app.mount("/pages", StaticFiles(directory="app/pages"), name="pages")
 
 
 # Modules Endpoints
+protected_router = APIRouter(
+    prefix="/api",
+    dependencies=[Depends(get_current_user_dep)]
+)
 
-app.include_router(text_gen_router)
-app.include_router(doc_ingestion_router)
-app.include_router(conversations_router)
-app.include_router(messages_router)
+protected_router.include_router(text_gen_router)
+protected_router.include_router(doc_ingestion_router)
+protected_router.include_router(conversations_router)
+protected_router.include_router(messages_router)
+
+
+
+app.include_router(auth_router)       # Public: /auth/*
+app.include_router(protected_router)
+
 
 # Health Check
-
-
 @app.get("/api/health")
 def health_check(username: AuthenticatedUserDep):
     return {

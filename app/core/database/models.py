@@ -1,6 +1,6 @@
 import uuid
-from datetime import UTC, datetime
-from sqlalchemy import DateTime, ForeignKey, Index, String
+from datetime import datetime
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pydantic import UUID4
 
@@ -19,10 +19,10 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     role: Mapped[str] = mapped_column(default="USER")
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     tokens: Mapped[list["Token"]] = relationship("Token", back_populates="user")
@@ -42,16 +42,16 @@ class Token(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     ip_address: Mapped[str | None] = mapped_column(String(length=255))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     user: Mapped["User"] = relationship("User", back_populates="tokens")
 
     __table_args__ = (
-        Index("ix_token_user_id", "id"),
+        Index("ix_token_user_id", "user_id"),
         Index("ix_token_ip_address", "ip_address"),
     )
 
@@ -64,10 +64,10 @@ class Conversation(Base):
     title: Mapped[str] = mapped_column()
     model_type: Mapped[str] = mapped_column(index=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     messages: Mapped[list["Message"]] = relationship(
@@ -94,10 +94,10 @@ class Message(Base):
     is_success: Mapped[bool | None] = mapped_column()
     status_code: Mapped[int | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC)
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     conversation: Mapped["Conversation"] = relationship(
