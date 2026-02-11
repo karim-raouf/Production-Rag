@@ -22,7 +22,7 @@ from app.modules.text_generation.infrastructure.model_lifecycle import (
     load_models_at_startup,
     clear_models_at_shutdown,
 )
-from .basic_auth import AuthenticatedUserDep
+# from .basic_auth import AuthenticatedUserDep
 from .modules.authentication.dependencies import get_current_user_dep
 from .modules.authentication.router import router as auth_router
 
@@ -114,9 +114,8 @@ app.include_router(protected_router)
 
 # Health Check
 @app.get("/api/health")
-def health_check(username: AuthenticatedUserDep):
+def health_check():
     return {
         "status": "ok",
         "model_loaded": global_ml_store.get("embed_model") is not None,
-        "username" : username
     }
