@@ -3,7 +3,7 @@ from ....core.database.dependencies import DBSessionDep
 from ....core.database.models import Token, User
 from ....core.database.schemas import UserCreate, UserInDB
 from ..exceptions import AlreadyRegisteredException, UnauthorizedException
-from fastapi.security import HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from ....core.database.services import TokenService, UserService
 from .password import PasswordService
 from uuid import UUID
@@ -43,14 +43,9 @@ class AuthService:
             raise UnauthorizedException
         return await self.token_service.create_access_token(user, expires_delta=None)
 
-    async def get_current_user(self, credentials: HTTPAuthorizationCredentials) -> User:
-        if credentials.scheme != "Bearer":
-            logger.error(
-                f"get_current_user: Invalid auth scheme '{credentials.scheme}', expected 'Bearer'"
-            )
-            raise UnauthorizedException
-        if not (token := credentials.credentials):
-            logger.error("get_current_user: Empty token in credentials")
+    async def get_current_user(self, token: str) -> User:
+        if not token:
+            logger.error("get_current_user: Empty token")
             raise UnauthorizedException
 
         payload = self.token_service.decode(token)
@@ -67,8 +62,8 @@ class AuthService:
             raise UnauthorizedException
         return user
 
-    async def logout(self, credentials: HTTPAuthorizationCredentials) -> None:
-        payload = self.token_service.decode(credentials.credentials)
+    async def logout(self, token: str) -> None:
+        payload = self.token_service.decode(token)
         await self.token_service.deactivate(UUID(payload.get("jti")))
 
     async def reset_password():
