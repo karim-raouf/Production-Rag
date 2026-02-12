@@ -24,6 +24,8 @@ class AppSettings(BaseSettings):
     jwt_algorithm: Annotated[str, Field(alias="JWT_ALGORITHM")]
     jwt_expires_in_minutes: Annotated[int, Field(alias="JWT_EXPIRES_IN_MINUTES")]
 
+    github_client_id: Annotated[str, Field(alias="GITHUB_OAUTH_CLIENT_ID")]
+    github_client_secret: Annotated[str, Field(alias="GITHUB_OAUTH_CLIENT_SECRET")]
 
 @lru_cache
 def get_settings() -> AppSettings:
