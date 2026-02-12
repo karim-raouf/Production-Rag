@@ -19,6 +19,7 @@ from app.core.logging import write_log_to_csv, setup_logging
 from app.modules.text_generation.router import router as text_gen_router
 from app.modules.document_ingestion.router import router as doc_ingestion_router
 from app.core.database.routers import conversations_router, messages_router
+from .modules.authentication.oauth import oauth_router
 from app.modules.text_generation.infrastructure.model_lifecycle import (
     load_models_at_startup,
     clear_models_at_shutdown,
@@ -112,6 +113,7 @@ protected_router.include_router(messages_router)
 
 
 app.include_router(auth_router)  # Public: /auth/*
+app.include_router(oauth_router)
 app.include_router(protected_router)
 
 

@@ -2,7 +2,6 @@ from typing import Annotated
 import aiohttp
 from fastapi import Depends, HTTPException, status, Request
 from loguru import logger
-from fastapi.security import APIKeyCookie
 
 client_id = "your_client_id"
 client_secret = "your_client_secret"

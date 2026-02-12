@@ -10,7 +10,7 @@ client_secret = "your_client_secret"
 router = APIRouter()
 
 
-@router.get("/oauth/github/login")
+@router.get("/github/login")
 async def oauth_github_login_controller(request: Request) -> RedirectResponse:
     state = secrets.token_urlsafe(16)
     request.session["x-csrf-state-token"] = state
@@ -24,7 +24,7 @@ async def oauth_github_login_controller(request: Request) -> RedirectResponse:
     )
     return response
 
-@router.get("/oauth/github/callback", dependencies=[Depends(check_csrf_state)])
+@router.get("/github/callback", dependencies=[Depends(check_csrf_state)])
 async def oauth_github_callback_controller(
     access_token = ExchangeCodeTokenDep
 ):
@@ -39,6 +39,6 @@ async def oauth_github_callback_controller(
     return  response
 
 
-@router.get("/users/me")
+@router.get("/github/users/me")
 async def get_current_user_controller(user_info = GetUserInfoDep):
     return user_info
