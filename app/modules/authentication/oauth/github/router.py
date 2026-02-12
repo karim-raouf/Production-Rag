@@ -2,10 +2,10 @@ import secrets
 from fastapi import APIRouter, Request, Depends
 from loguru import logger
 from fastapi.responses import RedirectResponse
-from .dependencies import check_csrf_state, ExchangeCodeTokenDep, GetUserInfoDep
-
+from .dependencies import check_csrf_state, ExchangeCodeTokenDep, get_user_info
 from ..config import GITHUB_CLIENT_ID
-
+from ...dependencies import AuthServiceDep, UserServiceDep, TokenServiceDep
+from .....core.database.schemas import UserCreate
 
 router = APIRouter()
 
@@ -21,22 +21,39 @@ async def oauth_github_login_controller(request: Request) -> RedirectResponse:
         f"?client_id={GITHUB_CLIENT_ID}"
         f"&redirect_uri={redirect_uri}"
         f"&state={state}"
-        f"&scope=user"
+        f"&scope=user:email"
     )
     return response
 
 
 @router.get("/github/callback", dependencies=[Depends(check_csrf_state)])
 async def oauth_github_callback_controller(
-    request: Request, access_token: ExchangeCodeTokenDep
+    request: Request,
+    access_token: ExchangeCodeTokenDep,
+    auth_service: AuthServiceDep,
+    token_service: TokenServiceDep,
+    user_service: UserServiceDep,
 ):
+    user_info = await get_user_info(access_token)
     logger.info(f"GitHub OAuth callback received. Access token: {access_token}")
-    request.session["access_token"] = access_token
-    response = RedirectResponse(url="http://127.0.0.1:8080")
-    return response
+    github_id, github_email, github_username = user_info
+
+    logger.info("loggin Github user in")
+    if not (user := await user_service.get_user(github_email)):
+        random_password = secrets.token_urlsafe(16)
+        user = await auth_service.register_user(UserCreate(
+            email=github_email,
+            username=github_username,
+            password=random_password
+        ))
+    logger.info("Github account logged in")
+    token = await token_service.create_access_token(user, expires_delta=None)
+    request.session["access_token"] = token
+    request.session["token_type"] = "Bearer"
+    return RedirectResponse(url="/")
 
 
-@router.get("/github/users/me")
-async def get_current_user_controller(user_info: GetUserInfoDep):
-    logger.info(f"Returning current user info: {user_info}")
-    return user_info
+# @router.get("/github/users/app/login")
+# async def login_github_user_controller(user_info: GetUserInfoDep):
+#     logger.info(f"Returning current user info: {user_info}")
+#     return user_info

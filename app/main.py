@@ -43,7 +43,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Session Middleware - needed for OAuth (e.g. GitHub) to store state
-app.add_middleware(SessionMiddleware, secret_key="your_secret_key")
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key="your_secret_key",
+    session_cookie="session",  # Name of the cookie
+    same_site="lax",           # SameSite strategy
+    https_only=False        # set True in production
+)
 
 # CORS Middleware - must be added before other middleware
 app.add_middleware(

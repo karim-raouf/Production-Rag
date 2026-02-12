@@ -62,29 +62,39 @@ def check_csrf_state(request: Request, state: str) -> None:
 
 
 # GETTING THE USER INFO FROM GITHUB DEPENDENCY------------------------------------
-def get_acces_token(request: Request):
-    return request.session.get("access_token")
+# def get_acces_token(request: Request):
+#     return request.session.get("access_token")
 
 
-AccesTokenCookie = Annotated[str, Depends(get_acces_token)]
+# AccesTokenCookie = Annotated[str, Depends(get_acces_token)]
 
 
-async def get_user_info(access_token: AccesTokenCookie):
+async def get_user_info(access_token: str):
     logger.info(f"Fetching user info with access token: {access_token}")
     try:
         header = {"Authorization": f"Bearer {access_token}"}
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
+                "https://api.github.com/user/emails", headers=header
+            ) as email_resp:
+                email_data = await email_resp.json()
+
+            async with session.get(
                 "https://api.github.com/user", headers=header
-            ) as resp:
-                return await resp.json()
+            ) as profile_resp:
+                profile_data = await profile_resp.json()
+
+            email = next(
+                (item["email"] for item in email_data if item["primary"]), None
+            )
+            github_id, usename = profile_data["id"], profile_data["login"]
+
+            return (github_id, email, usename)
+
     except Exception as e:
         logger.error(f"Failed to fetch user info: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"failed to obtain user info {e}",
         )
-
-
-GetUserInfoDep = Annotated[dict, Depends(get_user_info)]
