@@ -12,6 +12,7 @@ from starlette.background import BackgroundTask
 from datetime import datetime, timezone
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.ml import global_ml_store
 from app.core.logging import write_log_to_csv, setup_logging
@@ -22,6 +23,7 @@ from app.modules.text_generation.infrastructure.model_lifecycle import (
     load_models_at_startup,
     clear_models_at_shutdown,
 )
+
 # from .basic_auth import AuthenticatedUserDep
 from .modules.authentication.dependencies import get_current_user_dep
 from .modules.authentication.router import router as auth_router
@@ -38,6 +40,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Session Middleware - needed for OAuth (e.g. GitHub) to store state
+app.add_middleware(SessionMiddleware, secret_key="your_secret_key")
 
 # CORS Middleware - must be added before other middleware
 app.add_middleware(
@@ -97,8 +102,7 @@ app.mount("/pages", StaticFiles(directory="app/pages"), name="pages")
 
 # Modules Endpoints
 protected_router = APIRouter(
-    prefix="/api",
-    dependencies=[Depends(get_current_user_dep)]
+    prefix="/api", dependencies=[Depends(get_current_user_dep)]
 )
 
 protected_router.include_router(text_gen_router)
@@ -107,8 +111,7 @@ protected_router.include_router(conversations_router)
 protected_router.include_router(messages_router)
 
 
-
-app.include_router(auth_router)       # Public: /auth/*
+app.include_router(auth_router)  # Public: /auth/*
 app.include_router(protected_router)
 
 
