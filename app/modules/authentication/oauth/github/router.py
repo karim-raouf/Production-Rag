@@ -1,7 +1,7 @@
 import secrets
-from fastapi import APIRouter, Request, status, Depends
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
-from .dependencies import check_csrf_state, ExchangeCodeTokenDep
+from .dependencies import check_csrf_state, ExchangeCodeTokenDep, GetUserInfoDep
 
 client_id = "your_client_id"
 client_secret = "your_client_secret"
@@ -37,3 +37,8 @@ async def oauth_github_callback_controller(
         samesite="lax"
     )
     return  response
+
+
+@router.get("/users/me")
+async def get_current_user_controller(user_info = GetUserInfoDep):
+    return user_info

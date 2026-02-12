@@ -2,6 +2,7 @@ from typing import Annotated
 import aiohttp
 from fastapi import Depends, HTTPException, status, Request
 from loguru import logger
+from fastapi.security import APIKeyCookie
 
 client_id = "your_client_id"
 client_secret = "your_client_secret"
@@ -49,7 +50,8 @@ ExchangeCodeTokenDep = Annotated[str, Depends(exchange_grant_with_access_token)]
 # CHECKING THE CSRF DEPENDENCY----------------------------------------------
 
 def check_csrf_state(request: Request, state: str) -> None:
-    if state != request.session.get("x-csrf-state-token"):
+    session_state = request.session.get("x-csrf-state-token")
+    if not session_state or state != session_state:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Bad Request"
@@ -57,6 +59,29 @@ def check_csrf_state(request: Request, state: str) -> None:
 
 
 # GETTING THE USER INFO FROM GITHUB DEPENDENCY------------------------------------
-async def get_user_info(request: Request):
-    access_token = request.session.get("access_token")
+def get_acces_token(request: Request):
+    return request.session.get("access_token")
     
+AccesTokenCookie = Annotated[str, Depends(get_acces_token)]
+
+
+async def get_user_info(access_token = AccesTokenCookie):
+    try:
+        
+        header = {
+            "Authorization" :f"Bearer {access_token}"
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://api.github.com/user",
+                headers = header
+            ) as resp:
+                return await resp.json()   
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"failed to obtain user info {e}"
+        )
+
+GetUserInfoDep = Annotated[dict, Depends(get_user_info)]
