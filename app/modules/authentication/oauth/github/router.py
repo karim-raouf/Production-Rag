@@ -28,7 +28,7 @@ async def oauth_github_login_controller(request: Request) -> RedirectResponse:
 async def oauth_github_callback_controller(
     access_token = ExchangeCodeTokenDep
 ):
-    response = RedirectResponse(url="http://localhost:8501")
+    response = RedirectResponse(url="http://localhost:8080")
     response.set_cookie(
         key="access_token",
         value=access_token,
