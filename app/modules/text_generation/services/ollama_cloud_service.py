@@ -1,5 +1,5 @@
 from ollama import AsyncClient
-
+import ollama
 from typing import AsyncGenerator
 import asyncio
 
@@ -20,10 +20,17 @@ class OllamaCloudChatClient:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ]
+        try:
+            async for token in await self.aclient.chat(model, messages=messages, stream=True):
+                if token['message']['content'] is not None:
+                    yield f"data: {token['message']['content'] or ''}\n\n" if stream_mode == "sse" else token['message']['content']
+                    await asyncio.sleep(0.01)
+            if stream_mode == "sse":
+                yield f"data: [DONE]\n\n"
 
-        async for token in await self.aclient.chat(model, messages=messages, stream=True):
-            if token['message']['content'] is not None:
-                yield f"data: {token['message']['content'] or ''}\n\n" if stream_mode == "sse" else token['message']['content']
-                await asyncio.sleep(0.01)
-        if stream_mode == "sse":
-            yield f"data: [DONE]\n\n"
+        except ollama.ResponseError as e:
+            print(f"Ollama Server Error: {e.error}")
+            if e.status_code == 500:
+                yield "Error: The Ollama server crashed. Check server logs or model availability."
+            else:
+                yield f"Error: Ollama returned status {e.status_code}"

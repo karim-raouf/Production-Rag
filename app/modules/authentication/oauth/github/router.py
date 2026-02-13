@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from .dependencies import check_csrf_state, ExchangeCodeTokenDep, get_user_info
 from ..config import GITHUB_CLIENT_ID
 from ...dependencies import AuthServiceDep, UserServiceDep, TokenServiceDep
-from .....core.database.schemas import UserCreate
+from .....core.database.schemas import UserCreate, UserInDB
 
 router = APIRouter()
 
@@ -38,14 +38,24 @@ async def oauth_github_callback_controller(
     logger.info(f"GitHub OAuth callback received. Access token: {access_token}")
     github_id, github_email, github_username = user_info
 
-    logger.info("loggin Github user in")
-    if not (user := await user_service.get_user(github_email)):
-        random_password = secrets.token_urlsafe(16)
-        user = await auth_service.register_user(UserCreate(
-            email=github_email,
-            username=github_username,
-            password=random_password
-        ))
+    if not (user := await user_service.get_user_by_github_id(str(github_id))):
+        if user := await user_service.get_user_by_email(github_email):
+            # User exists by email, link account
+            user_in = UserInDB.model_validate(user)
+            user_in.github_id = str(github_id)
+            user = await user_service.update(user.id, user_in)
+        else:
+            # New user
+            random_password = secrets.token_urlsafe(16)
+            user = await auth_service.register_user(
+                UserCreate(
+                    github_id=str(github_id),
+                    email=github_email,
+                    username=github_username,
+                    password=random_password,
+                )
+            )
+
     logger.info("Github account logged in")
     token = await token_service.create_access_token(user, expires_delta=None)
     request.session["access_token"] = token

@@ -98,7 +98,7 @@ async def stream_text_to_text(
     full_prompt = "\n\n".join(prompt_parts)
 
     response_stream = client.stream_chat(
-        prompt=full_prompt, model="qwen3-vl:235b-instruct-cloud"
+        prompt=full_prompt, model="ministral-3:14b-cloud"
     )
 
     async def stream_with_storage(

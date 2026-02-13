@@ -16,7 +16,7 @@ class AuthService:
         self.user_service = UserService(session)
 
     async def register_user(self, user: UserCreate) -> User:
-        if await self.user_service.get_user(user.email):
+        if await self.user_service.get_user_by_email(user.email):
             raise AlreadyRegisteredException
         hashed_password = await self.password_service.get_password_hash(user.password)
 
@@ -25,11 +25,12 @@ class AuthService:
                 email=user.email,
                 username=user.username,
                 hashed_password=hashed_password,
+                github_id=user.github_id,
             )
         )
 
     async def authenticate_user(self, form_data: OAuth2PasswordRequestForm) -> Token:
-        if not (user := await self.user_service.get_user(form_data.username)):
+        if not (user := await self.user_service.get_user_by_email(form_data.username)):
             logger.error(
                 f"authenticate_user: User not found with email '{form_data.username}'"
             )
@@ -57,7 +58,7 @@ class AuthService:
         if not (email := payload.get("email")):
             logger.error("get_current_user: Missing email in token payload")
             raise UnauthorizedException
-        if not (user := await self.user_service.get_user(email)):
+        if not (user := await self.user_service.get_user_by_email(email)):
             logger.error(f"get_current_user: User not found for email '{email}'")
             raise UnauthorizedException
         return user

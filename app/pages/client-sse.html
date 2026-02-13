@@ -37,7 +37,7 @@
         }
         button.addEventListener('click', function () {
             const message = input.value;
-            const url = 'http://localhost:8080/api/text-generation/stream/text-to-text?prompt=' +
+            const url = 'http://localhost:8080/api/text-generation/stream/text-to-text/36?prompt=' +
                 encodeURIComponent(message);
             resetForm()
             source = new EventSource(url);

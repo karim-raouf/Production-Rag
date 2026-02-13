@@ -44,6 +44,7 @@ class UserBase(BaseModel):
 
     email: EmailStr
     username: str
+    github_id: str | None = None
     is_active: bool = True
     role: str = "USER"
 

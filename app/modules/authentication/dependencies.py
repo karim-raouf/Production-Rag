@@ -38,6 +38,7 @@ def get_auth_service(session: DBSessionDep):
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
+
 async def get_current_user_dep(token: AuthTokenDep, auth_service: AuthServiceDep):
     return await auth_service.get_current_user(token)
 
@@ -45,10 +46,12 @@ async def get_current_user_dep(token: AuthTokenDep, auth_service: AuthServiceDep
 def get_user_service(session: DBSessionDep):
     return UserService(session)
 
+
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 
 def get_token_service(session: DBSessionDep):
     return TokenService(session)
+
 
 TokenServiceDep = Annotated[TokenService, Depends(get_token_service)]

@@ -13,11 +13,13 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID4] = mapped_column(primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(length=255), unique=True)
+    github_id: Mapped[str | None] = mapped_column(String(length=255), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(length=255), unique=True, index=True)
     username: Mapped[str] = mapped_column(String(length=255))
     hashed_password: Mapped[str] = mapped_column(String(length=255))
     is_active: Mapped[bool] = mapped_column(default=True)
     role: Mapped[str] = mapped_column(default="USER")
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
@@ -33,17 +35,17 @@ class User(Base):
         "Conversation", back_populates="user"
     )
 
-    __table_args__ = (Index("ix_user_email", "email"),)
+    # __table_args__ = (Index("ix_user_email", "email"),)
 
 
 class Token(Base):
     __tablename__ = "tokens"
 
     id: Mapped[UUID4] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[UUID4] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[UUID4] = mapped_column(ForeignKey("users.id"), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(default=True)
-    ip_address: Mapped[str | None] = mapped_column(String(length=255))
+    ip_address: Mapped[str | None] = mapped_column(String(length=255), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
@@ -56,10 +58,10 @@ class Token(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="tokens")
 
-    __table_args__ = (
-        Index("ix_token_user_id", "user_id"),
-        Index("ix_token_ip_address", "ip_address"),
-    )
+    # __table_args__ = (
+    #     Index("ix_token_user_id", "user_id"),
+    #     Index("ix_token_ip_address", "ip_address"),
+    # )
 
 
 class Conversation(Base):
