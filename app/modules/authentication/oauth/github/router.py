@@ -34,7 +34,7 @@ async def oauth_github_callback_controller(
     token_service: TokenServiceDep,
     user_service: UserServiceDep,
 ):
-    user_info = await get_user_info(access_token)
+    user_info: tuple = await get_user_info(access_token)
     logger.info(f"GitHub OAuth callback received. Access token: {access_token}")
     github_id, github_email, github_username = user_info
 

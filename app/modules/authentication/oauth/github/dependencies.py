@@ -1,6 +1,6 @@
 from typing import Annotated
 import aiohttp
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request, Query
 from loguru import logger
 
 from ..config import GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
@@ -9,7 +9,7 @@ from ..config import GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 # exchanging the auth_code with the access token from github------------------------
 
 
-async def exchange_grant_with_access_token(code: str) -> str:
+async def exchange_grant_with_access_token(code: str = Query()) -> str:
     logger.info(f"Exchanging grant code for access token. Code: {code}")
     try:
         body = {
