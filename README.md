@@ -1,18 +1,22 @@
 # Production Ready RAG System
 
-A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, and document ingestion support.
+A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, document ingestion, and multi-provider authentication.
 
 ---
 
 ## ✨ Features
 
-- **Text Generation** - AI-powered text generation with streaming support (SSE & WebSocket)
-- **RAG Pipeline** - Retrieval-Augmented Generation using Qdrant vector database
-- **Web Scraping** - Real-time URL content extraction and integration into prompts
-- **Document Ingestion** - PDF upload and processing for knowledge base enrichment
-- **Conversation Management** - Persistent conversation history with PostgreSQL
-- **Multi-Model Support** - Integration with VLLM and Ollama backends
-- **JWT Authentication** - Secure JWT-based authentication with token revocation support
+- **Text Generation** — AI-powered text generation with streaming support (SSE & WebSocket)
+- **RAG Pipeline** — Retrieval-Augmented Generation using Qdrant vector database
+- **Web Scraping** — Real-time URL content extraction and integration into prompts
+- **Document Ingestion** — PDF upload and processing for knowledge base enrichment
+- **Conversation Management** — Persistent conversation history with PostgreSQL
+- **Multi-Model Support** — Integration with VLLM and Ollama backends
+- **JWT Authentication** — Secure JWT-based authentication with token revocation support
+- **GitHub OAuth** — Sign in with GitHub via OAuth 2.0 with CSRF protection
+- **Session Management** — Server-side session middleware for OAuth flows and token storage
+- **Request Monitoring** — HTTP middleware that logs every request to CSV with timing and status
+- **CORS Support** — Configurable Cross-Origin Resource Sharing middleware
 
 ---
 
@@ -20,52 +24,75 @@ A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation)
 
 ```
 app/
-├── main.py                     # FastAPI application entry point
-├── basic_auth.py               # Basic authentication (deprecated)
+├── main.py                         # FastAPI entry point, middleware, router wiring
+├── basic_auth_depricated.py        # Legacy basic auth (deprecated)
 ├── core/
-│   ├── config.py               # Application settings (Pydantic)
-│   ├── logging.py              # Request logging to CSV
-│   ├── ml.py                   # Global ML model store
+│   ├── config.py                   # Application settings (Pydantic BaseSettings)
+│   ├── logging.py                  # Request logging to CSV via Loguru
+│   ├── ml.py                       # Global ML model store
 │   └── database/
-│       ├── database.py         # AsyncEngine & session factory
-│       ├── models.py           # SQLAlchemy ORM models (User, Token, Conversation, Message)
-│       ├── dependencies.py     # Database session dependency
-│       ├── repositories/       # Data access layer
+│       ├── database.py             # AsyncEngine & session factory
+│       ├── models.py               # SQLAlchemy ORM models (User, Token, Conversation, Message)
+│       ├── dependencies.py         # Database session dependency
+│       ├── repositories/           # Data access layer (CRUD operations)
 │       │   ├── users.py
 │       │   ├── tokens.py
 │       │   ├── conversations.py
 │       │   └── messages.py
-│       ├── services/           # Business logic layer
+│       ├── services/               # Business logic layer
 │       │   ├── users.py
 │       │   ├── tokens.py
 │       │   ├── conversations.py
 │       │   └── messages.py
-│       ├── schemas/            # Pydantic request/response models
-│       └── routers/            # CRUD API endpoints
+│       ├── schemas/                # Pydantic request/response models
+│       │   ├── users.py
+│       │   ├── tokens.py
+│       │   ├── conversations.py
+│       │   └── messages.py
+│       └── routers/                # CRUD API endpoints
 │           ├── conversations/
 │           └── messages/
 ├── modules/
-│   ├── authentication/         # JWT authentication module
-│   │   ├── router.py           # /auth/* endpoints (register, login, logout)
-│   │   ├── dependencies.py     # Auth header & current user deps
-│   │   ├── exceptions.py       # UnauthorizedException
-│   │   └── services/
-│   │       ├── auth.py         # AuthService (register, authenticate, logout)
-│   │       └── password.py     # Password hashing utilities
-│   ├── text_generation/        # Text generation module
-│   │   ├── router.py           # API endpoints (POST, SSE, WebSocket)
-│   │   ├── schemas.py          # Request/response schemas
-│   │   ├── dependencies.py     # Ollama client dependency
-│   │   ├── services/           # Generation & streaming logic
-│   │   │   ├── generation_service.py
-│   │   │   ├── ollama_cloud_service.py
-│   │   │   └── stream.py       # WebSocket manager
-│   │   ├── rag/                # RAG retrieval dependencies
-│   │   ├── scraping/           # Web content extraction
-│   │   └── infrastructure/     # Model lifecycle management
-│   ├── document_ingestion/     # PDF upload & processing
-│   └── image_generation/       # (Placeholder)
-└── pages/                      # Static files
+│   ├── authentication/
+│   │   ├── router.py               # /auth/* endpoints (register, login, logout)
+│   │   ├── dependencies.py         # Auth header & current user dependencies
+│   │   ├── exceptions.py           # UnauthorizedException
+│   │   ├── services/
+│   │   │   ├── auth.py             # AuthService (register, authenticate, logout)
+│   │   │   └── password.py         # Password hashing utilities (bcrypt)
+│   │   └── oauth/
+│   │       ├── router.py           # OAuth router aggregator
+│   │       ├── config.py           # OAuth credentials from AppSettings
+│   │       ├── github/
+│   │       │   ├── router.py       # /oauth/github/* endpoints (login, callback)
+│   │       │   └── dependencies.py # CSRF check, token exchange, user info
+│   │       └── google/             # (Placeholder for Google OAuth)
+│   ├── text_generation/
+│   │   ├── router.py               # API endpoints (POST, SSE, WebSocket)
+│   │   ├── schemas.py              # Request/response schemas
+│   │   ├── dependencies.py         # Ollama client dependency
+│   │   ├── services/
+│   │   │   ├── generation_service.py  # VLLM-based generation
+│   │   │   ├── ollama_cloud_service.py # Ollama streaming client
+│   │   │   └── stream.py           # WebSocket connection manager
+│   │   ├── rag/
+│   │   │   ├── dependencies.py     # RAG content dependency
+│   │   │   ├── repository.py       # Qdrant vector store operations
+│   │   │   ├── service.py          # RAG retrieval logic
+│   │   │   ├── extractor.py        # Embedding extraction
+│   │   │   └── transform.py        # Text chunking & transformation
+│   │   ├── scraping/
+│   │   │   ├── dependencies.py     # URL content dependency
+│   │   │   └── service.py          # Web content extraction
+│   │   └── infrastructure/
+│   │       └── model_lifecycle.py   # Model loading & cleanup at startup/shutdown
+│   ├── document_ingestion/
+│   │   ├── router.py               # /api/assets/documents/* endpoints
+│   │   ├── schema.py               # Upload schemas
+│   │   ├── service.py              # PDF processing & chunking
+│   │   └── dependencies.py         # File upload dependencies
+│   └── image_generation/           # (Placeholder)
+└── pages/                          # Static HTML files
 ```
 
 ---
@@ -103,7 +130,7 @@ app/
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` with your configuration:
    ```env
    UPLOAD_CHUNK_SIZE=1048576    # 1MB
@@ -121,6 +148,10 @@ app/
    JWT_SECRET_KEY=your-super-secret-key-change-in-production
    JWT_ALGORITHM=HS256
    JWT_EXPIRES_IN_MINUTES=60
+
+   # GitHub OAuth
+   GITHUB_OAUTH_CLIENT_ID=your-github-client-id
+   GITHUB_OAUTH_CLIENT_SECRET=your-github-client-secret
    ```
 
 5. **Run database migrations**
@@ -143,6 +174,12 @@ app/
 | `POST` | `/auth/register` | Register a new user        |
 | `POST` | `/auth/token`    | Login and get access token |
 | `POST` | `/auth/logout`   | Logout and revoke token    |
+
+### GitHub OAuth (Public)
+| Method | Endpoint                 | Description                                    |
+| ------ | ------------------------ | ---------------------------------------------- |
+| `GET`  | `/oauth/github/login`    | Redirect to GitHub for authorization           |
+| `GET`  | `/oauth/github/callback` | GitHub callback — exchanges code for JWT token |
 
 ### Health Check
 | Method | Endpoint      | Description                |
@@ -172,15 +209,15 @@ app/
 
 ## 🔐 Authentication
 
-The API uses **JWT Bearer Token** authentication. All `/api/*` endpoints are protected.
+The API supports **two authentication methods**: JWT Bearer Token and GitHub OAuth 2.0. All `/api/*` endpoints are protected.
 
-### Authentication Flow
+### JWT Authentication Flow
 
 1. **Register** a new user:
    ```bash
    curl -X POST http://localhost:8080/auth/register \
      -H "Content-Type: application/json" \
-     -d '{"username": "user", "password": "password"}'
+     -d '{"username": "user", "email": "user@example.com", "password": "password"}'
    ```
 
 2. **Login** to get access token:
@@ -202,23 +239,50 @@ The API uses **JWT Bearer Token** authentication. All `/api/*` endpoints are pro
      -H "Authorization: Bearer <access_token>"
    ```
 
+### GitHub OAuth Flow
+
+1. Navigate to `http://localhost:8080/oauth/github/login`
+2. User is redirected to GitHub for authorization
+3. GitHub redirects back to `/oauth/github/callback` with an authorization code
+4. The server exchanges the code for an access token, fetches user info, and creates/links the account
+5. A JWT token is stored in the session and the user is redirected to `/`
+
+> **Note:** GitHub OAuth requires a registered GitHub OAuth App. Set `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` in your `.env` file. The callback URL in your GitHub App should point to `http://localhost:8080/oauth/github/callback`.
+
 ---
 
 ## 🔧 Configuration
 
-| Variable                 | Description                        | Default     |
-| ------------------------ | ---------------------------------- | ----------- |
-| `UPLOAD_CHUNK_SIZE`      | File upload chunk size in bytes    | `1048576`   |
-| `RAG_CHUNK_SIZE`         | Text chunk size for RAG processing | `4000`      |
-| `EMBEDDING_SIZE`         | Vector embedding dimensions        | `768`       |
-| `QDRANT_HOST`            | Qdrant server hostname             | `localhost` |
-| `QDRANT_PORT`            | Qdrant server port                 | `6333`      |
-| `VLLM_API_KEY`           | VLLM API key                       | -           |
-| `OLLAMA_API_KEY`         | Ollama API key                     | -           |
-| `POSTGRES_URL`           | PostgreSQL connection string       | -           |
-| `JWT_SECRET_KEY`         | Secret key for JWT token signing   | -           |
-| `JWT_ALGORITHM`          | Algorithm for JWT signing          | `HS256`     |
-| `JWT_EXPIRES_IN_MINUTES` | Token expiration time in minutes   | `60`        |
+| Variable                     | Description                        | Default     |
+| ---------------------------- | ---------------------------------- | ----------- |
+| `UPLOAD_CHUNK_SIZE`          | File upload chunk size in bytes    | `1048576`   |
+| `RAG_CHUNK_SIZE`             | Text chunk size for RAG processing | `4000`      |
+| `EMBEDDING_SIZE`             | Vector embedding dimensions        | `768`       |
+| `QDRANT_HOST`                | Qdrant server hostname             | `localhost` |
+| `QDRANT_PORT`                | Qdrant server port                 | `6333`      |
+| `VLLM_API_KEY`               | VLLM API key                       | —           |
+| `OLLAMA_API_KEY`             | Ollama API key                     | —           |
+| `POSTGRES_URL`               | PostgreSQL async connection string | —           |
+| `JWT_SECRET_KEY`             | Secret key for JWT token signing   | —           |
+| `JWT_ALGORITHM`              | Algorithm for JWT signing          | `HS256`     |
+| `JWT_EXPIRES_IN_MINUTES`     | Token expiration time in minutes   | `60`        |
+| `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID         | —           |
+| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret     | —           |
+
+---
+
+## 🗄️ Database Models
+
+The application uses **SQLAlchemy 2.0** async ORM with **PostgreSQL** and **Alembic** for migrations.
+
+| Model          | Table           | Key Fields                                                                                           |
+| -------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| `User`         | `users`         | `id` (UUID), `github_id`, `email`, `username`, `hashed_password`, `role`                             |
+| `Token`        | `tokens`        | `id` (UUID), `user_id`, `expires_at`, `is_active`, `ip_address`                                      |
+| `Conversation` | `conversations` | `id`, `user_id`, `title`, `model_type`                                                               |
+| `Message`      | `messages`      | `id`, `conversation_id`, `request_content`, `response_content`, `url_content`, `rag_content`, tokens |
+
+All models include `created_at` and `updated_at` timestamps.
 
 ---
 
@@ -234,6 +298,7 @@ generataion_webscraping_practice/
 ├── system_logs/            # Request logs (gitignored)
 ├── .env.example            # Environment template
 ├── alembic.ini             # Alembic configuration
+├── .gitignore              # Git ignore rules
 └── README.md               # This file
 ```
 
@@ -258,11 +323,20 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
+### Middleware Stack
+
+The application applies middleware in the following order:
+
+1. **Session Middleware** — Stores OAuth state and access tokens in server-side sessions
+2. **CORS Middleware** — Allows cross-origin requests (configured for all origins in development)
+3. **Request Monitor** — Logs every HTTP request with timing, status code, and unique request ID
+
 ### Logging
 
 The application uses **Loguru** for structured logging:
 - Request logs are written to `system_logs/` as CSV files
 - Application logs include request IDs for tracing
+- Authentication errors are logged at `ERROR` level for debugging
 
 ---
 
