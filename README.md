@@ -1,6 +1,6 @@
 # Production Ready RAG System
 
-A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, document ingestion, and multi-provider authentication.
+A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, document ingestion, and multi-provider auth.
 
 ---
 
@@ -12,7 +12,7 @@ A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation)
 - **Document Ingestion** — PDF upload and processing for knowledge base enrichment
 - **Conversation Management** — Persistent conversation history with PostgreSQL
 - **Multi-Model Support** — Integration with VLLM and Ollama backends
-- **JWT Authentication** — Secure JWT-based authentication with token revocation support
+- **JWT auth** — Secure JWT-based auth with token revocation support
 - **GitHub OAuth** — Sign in with GitHub via OAuth 2.0 with CSRF protection
 - **Session Management** — Server-side session middleware for OAuth flows and token storage
 - **Request Monitoring** — HTTP middleware that logs every request to CSV with timing and status
@@ -53,10 +53,10 @@ app/
 │           ├── conversations/
 │           └── messages/
 ├── modules/
-│   ├── authentication/
+│   ├── auth/
 │   │   ├── router.py               # /auth/* endpoints (register, login, logout)
 │   │   ├── dependencies.py         # Auth header & current user dependencies
-│   │   ├── exceptions.py           # UnauthorizedException
+│   │   ├── exceptions.py           # UnauthenticatedException
 │   │   ├── services/
 │   │   │   ├── auth.py             # AuthService (register, authenticate, logout)
 │   │   │   └── password.py         # Password hashing utilities (bcrypt)
@@ -168,7 +168,7 @@ app/
 
 ## 📚 API Endpoints
 
-### Authentication (Public)
+### auth (Public)
 | Method | Endpoint         | Description                |
 | ------ | ---------------- | -------------------------- |
 | `POST` | `/auth/register` | Register a new user        |
@@ -207,11 +207,11 @@ app/
 
 ---
 
-## 🔐 Authentication
+## 🔐 auth
 
-The API supports **two authentication methods**: JWT Bearer Token and GitHub OAuth 2.0. All `/api/*` endpoints are protected.
+The API supports **two auth methods**: JWT Bearer Token and GitHub OAuth 2.0. All `/api/*` endpoints are protected.
 
-### JWT Authentication Flow
+### JWT auth Flow
 
 1. **Register** a new user:
    ```bash
@@ -336,7 +336,7 @@ The application applies middleware in the following order:
 The application uses **Loguru** for structured logging:
 - Request logs are written to `system_logs/` as CSV files
 - Application logs include request IDs for tracing
-- Authentication errors are logged at `ERROR` level for debugging
+- auth errors are logged at `ERROR` level for debugging
 
 ---
 

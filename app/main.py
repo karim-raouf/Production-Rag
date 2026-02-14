@@ -19,15 +19,15 @@ from app.core.logging import write_log_to_csv, setup_logging
 from app.modules.text_generation.router import router as text_gen_router
 from app.modules.document_ingestion.router import router as doc_ingestion_router
 from app.core.database.routers import conversations_router, messages_router
-from .modules.authentication.oauth import oauth_router
+from .modules.auth.oauth import oauth_router
 from app.modules.text_generation.infrastructure.model_lifecycle import (
     load_models_at_startup,
     clear_models_at_shutdown,
 )
 
 # from .basic_auth import AuthenticatedUserDep
-from .modules.authentication.dependencies import get_current_user_dep
-from .modules.authentication.router import router as auth_router
+from .modules.auth.dependencies import get_current_user_dep
+from .modules.auth.router import router as auth_router
 
 
 @asynccontextmanager
@@ -44,11 +44,11 @@ app = FastAPI(lifespan=lifespan)
 
 # Session Middleware - needed for OAuth (e.g. GitHub) to store state
 app.add_middleware(
-    SessionMiddleware, 
+    SessionMiddleware,
     secret_key="your_secret_key",
     session_cookie="session",  # Name of the cookie
-    same_site="lax",           # SameSite strategy
-    https_only=False        # set True in production
+    same_site="lax",  # SameSite strategy
+    https_only=False,  # set True in production
 )
 
 # CORS Middleware - must be added before other middleware
@@ -129,4 +129,10 @@ def health_check():
     return {
         "status": "ok",
         "model_loaded": global_ml_store.get("embed_model") is not None,
+    }
+
+@app.get("/")
+def home():
+    return {
+        "status": "at homw",
     }

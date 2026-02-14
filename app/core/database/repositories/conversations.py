@@ -4,14 +4,22 @@ from ..schemas.conversations import ConversationCreate, ConversationUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from collections.abc import Sequence
+from pydantic import UUID4
 
 
 class ConversationRepository(Repository):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_all(self, skip: int, take: int) -> Sequence[Conversation]:
-        query = select(Conversation).offset(skip).limit(take)
+    async def get_all(
+        self, user_id: UUID4, skip: int, take: int
+    ) -> Sequence[Conversation]:
+        query = (
+            select(Conversation)
+            .where(Conversation.user_id == user_id)
+            .offset(skip)
+            .limit(take)
+        )
         result = await self.session.scalars(query)
         return result.all()
 
@@ -35,5 +43,5 @@ class ConversationRepository(Repository):
         return conversation
 
     async def delete(self, conversation: Conversation) -> None:
-        self.session.delete(conversation)
+        await self.session.delete(conversation)
         await self.session.commit()

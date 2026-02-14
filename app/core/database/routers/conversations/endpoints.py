@@ -1,5 +1,4 @@
-from fastapi import APIRouter, status, Depends
-from typing import Annotated
+from fastapi import APIRouter, status
 
 from ...schemas import (
     ConversationOut,
@@ -11,20 +10,24 @@ from ...schemas import (
 from ...services import ConversationService
 from ...dependencies import DBSessionDep
 from .dependencies import GetConversationDep
-from app.modules.authentication.dependencies import get_current_user_dep
-from ...models import User
-
+from app.modules.auth.dependencies import CurrentUserDep
 app = APIRouter(prefix="/conversations")
 
-# Dependency to get the current authenticated user
-CurrentUserDep = Annotated[User, Depends(get_current_user_dep)]
+
 
 
 @app.get("")
 async def list_conversation_controller(
-    session: DBSessionDep, skip: int = 0, take: int = 100
+    current_user: CurrentUserDep,
+    session: DBSessionDep, 
+    skip: int = 0, 
+    take: int = 100
 ) -> list[ConversationOut]:
-    conversations = await ConversationService(session).get_all(skip=skip, take=take)
+    conversations = await ConversationService(session).get_all(
+        user_id=current_user.id, 
+        skip=skip, 
+        take=take
+    )
     return [ConversationOut.model_validate(c) for c in conversations]
 
 
@@ -33,6 +36,7 @@ async def get_conversation_controller(
     conversation: GetConversationDep,
 ) -> ConversationOut:
     return ConversationOut.model_validate(conversation)
+
 
 
 @app.post("", status_code=status.HTTP_201_CREATED)
@@ -56,21 +60,23 @@ async def update_conversation_controller(
     updated_conversation: ConversationUpdate,
 ) -> ConversationOut:
     updated_conversation = await ConversationService(session).update(
-        conversation, updated_conversation
+        conversation, updated_conversation, 
     )
     return ConversationOut.model_validate(updated_conversation)
 
 
 @app.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation_controller(
-    session: DBSessionDep, conversation: GetConversationDep
+    session: DBSessionDep, 
+    conversation: GetConversationDep, 
 ) -> None:
     await ConversationService(session).delete(conversation)
 
 
 @app.get("/{conversation_id}/messages")
 async def get_conversation_messages_controller(
-    session: DBSessionDep, conversation: GetConversationDep
+    session: DBSessionDep, 
+    conversation: GetConversationDep,
 ) -> list[MessageOut]:
     messages = await ConversationService(session).list_messages(conversation.id)
     return [MessageOut.model_validate(m) for m in messages]

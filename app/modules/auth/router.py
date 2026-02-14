@@ -4,8 +4,7 @@ from ...core.database.schemas import TokenOut, UserOut, UserCreate
 from .dependencies import AuthTokenDep, LoginFormDep, AuthServiceDep
 
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
-
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register")

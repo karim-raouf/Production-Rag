@@ -1,22 +1,35 @@
 from .interfaces import Repository
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models import Message
+from ..models import Message, Conversation
 from ..schemas import MessageCreate, MessageUpdate
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from collections.abc import Sequence
+from pydantic import UUID4
 
 
 class MessageRepository(Repository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self, skip: int, take: int) -> Sequence[Message]:
-        query = select(Message).offset(skip).limit(take)
+    async def get_all(self, user_id: UUID4, skip: int, take: int) -> Sequence[Message]:
+        query = (
+            select(Message)
+            .where(Message.conversation.has(Conversation.user_id == user_id))
+            .offset(skip)
+            .limit(take)
+        )
         result = await self.session.scalars(query)
         return result.all()
 
     async def get(self, message_id: int) -> Message | None:
-        return await self.session.get(Message, message_id)
+        query = (
+            select(Message)
+            .where(Message.id == message_id)
+            .options(selectinload(Message.conversation))
+        )
+        result = await self.session.scalars(query)
+        return result.first()
 
     async def create(self, message: MessageCreate) -> Message:
         new_message = Message(**message.model_dump())
@@ -33,5 +46,5 @@ class MessageRepository(Repository):
         return message
 
     async def delete(self, message: Message) -> None:
-        self.session.delete(message)
+        await self.session.delete(message)
         await self.session.commit()

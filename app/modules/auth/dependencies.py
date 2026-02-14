@@ -2,16 +2,16 @@ from typing import Annotated
 from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import (
     OAuth2PasswordRequestForm,
-    HTTPBearer,
-    HTTPAuthorizationCredentials,
+    # HTTPBearer,
 )
 from ...core.database.dependencies import DBSessionDep
 from .services import AuthService
 from ...core.database.services import UserService, TokenService
+from ...core.database.models import User
 
 # it checks the incoming request for a authorization header that is Bearer type ( Authorization: Bearer <Token> )
 # auto_error=False allows us to check cookies if header is missing
-security = HTTPBearer(auto_error=False)
+# security = HTTPBearer(auto_error=False)
 
 # this dependency look for field names username and password in the formdata in request (used in login endpoint)
 LoginFormDep = Annotated[OAuth2PasswordRequestForm, Depends()]
@@ -41,6 +41,9 @@ AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 async def get_current_user_dep(token: AuthTokenDep, auth_service: AuthServiceDep):
     return await auth_service.get_current_user(token)
+
+# Dependency to get the current authenticated user
+CurrentUserDep = Annotated[User, Depends(get_current_user_dep)]
 
 
 def get_user_service(session: DBSessionDep):
