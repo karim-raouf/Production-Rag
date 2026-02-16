@@ -2,8 +2,6 @@ from ollama import AsyncClient
 import ollama
 from typing import AsyncGenerator
 import asyncio
-from ..gaurdrails.input_gaurdrail import is_topic_allowed
-from loguru import logger
 
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -33,7 +31,6 @@ class OllamaCloudChatClient:
         user_query: str,
         other_prompt_content: str,
         model: str,
-        guardrails: bool = True,
     ) -> str:
         if not system_prompt:
             system_prompt = DEFAULT_SYSTEM_PROMPT
@@ -43,25 +40,8 @@ class OllamaCloudChatClient:
             {"role": "user", "content": user_query + other_prompt_content},
         ]
 
-        if guardrails:
-            guard_task = asyncio.create_task(is_topic_allowed(user_query, self))
-            chat_task = asyncio.create_task(
-                self.aclient.chat(model, messages=messages, think="medium")
-            )
-
-            # Wait for guard result first
-            guard_output = await guard_task
-            if not guard_output.classification:
-                chat_task.cancel()
-                logger.warning("Topical guardrail triggered")
-                return "sorry but i can't answer this :("
-
-            # Guard passed — wait for chat if not already done
-            chat_result = await chat_task
-            return chat_result["message"]["content"]
-        else:
-            response = await self.aclient.chat(model, messages=messages, think="medium")
-            return response["message"]["content"]
+        response = await self.aclient.chat(model, messages=messages, think="medium")
+        return response["message"].get("content"), response["message"].get("thinking")
 
     async def stream_chat(
         self,
@@ -78,17 +58,7 @@ class OllamaCloudChatClient:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_query + other_prompt_content},
         ]
-        guardrail_response = await is_topic_allowed(user_query, self)
-        if not guardrail_response.classification:
-            logger.warning("Topical guardrail triggered")
-            yield (
-                "data: sorry but i can't answer this :(\n\n"
-                if stream_mode == "sse"
-                else "sorry but i can't answer this :("
-            )
-            if stream_mode == "sse":
-                yield "data: [DONE]\n\n"
-            return
+
         try:
             async for token in await self.aclient.chat(
                 model, messages=messages, stream=True, think="medium"

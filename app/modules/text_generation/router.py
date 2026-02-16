@@ -3,7 +3,8 @@ from fastapi.responses import StreamingResponse
 from .schemas import TextToTextRequest, TextToTextResponse
 from .services.generation_service import generate_text
 from .services.ollama_cloud_service import OllamaCloudChatClient
-from .dependencies import get_ollama_client
+from .dependencies import get_ollama_client, get_input_guardrail
+from .gaurdrails.input_gaurdrail import InputGuardrail
 from fastapi.websockets import WebSocket, WebSocketDisconnect
 import asyncio
 from ...core.database.dependencies import DBSessionDep
@@ -64,14 +65,14 @@ async def text_to_text(
     return TextToTextResponse(result=result)
 
 
-@router.post(
-    "/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse
-)
+
+@router.post("/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse)
 async def ollama_text_to_text(
     conversation: GetConversationDep,
     session: DBSessionDep,
     body: TextToTextRequest = Body(...),
     client: OllamaCloudChatClient = Depends(get_ollama_client),
+    guardrail: InputGuardrail = Depends(get_input_guardrail),
 ):
     # Manually fetch content using extracted service functions
     urls_content = await fetch_urls_content(body.prompt)
@@ -98,7 +99,23 @@ async def ollama_text_to_text(
     ]
     full_prompt = "\n\n".join(prompt_parts)
 
-    response = await client.ainvoke(
+    guard_result = await guardrail.is_topic_allowed(body.prompt)
+    if not guard_result.classification:
+        logger.warning("Topical guardrail triggered")
+        response = "sorry but i can't answer this :("
+        await MessageRepository(session).create(
+            MessageCreate(
+                url_content=urls_content,
+                rag_content=rag_content,
+                request_content=body.prompt,
+                response_content=response,
+                thinking_content="Guardrail Triggered",
+                conversation_id=conversation.id,
+            )
+        )
+        return TextToTextResponse(result=response)
+
+    response, thinking = await client.ainvoke(
         system_prompt=None,
         user_query=body.prompt,
         other_prompt_content=full_prompt,
@@ -111,6 +128,7 @@ async def ollama_text_to_text(
             rag_content=rag_content,
             request_content=body.prompt,
             response_content=response,
+            thinking_content=thinking,
             conversation_id=conversation.id,
         )
     )
@@ -123,39 +141,9 @@ async def stream_text_to_text(
     session: DBSessionDep,
     prompt: str = Query(...),
     client: OllamaCloudChatClient = Depends(get_ollama_client),
+    guardrail: InputGuardrail = Depends(get_input_guardrail),
 ) -> StreamingResponse:
-    # Manually fetch content using extracted service functions
-    urls_content = await fetch_urls_content(prompt)
-    rag_content = await fetch_rag_content(prompt)
-
-    if not prompt:
-        logger.warning("No prompt provided")
-    else:
-        logger.info("prompt provided")
-    if urls_content is None:
-        logger.warning("No urls content provided")
-    else:
-        logger.info("url content provided")
-    if rag_content is None:
-        logger.warning("No rag content provided")
-    else:
-        logger.info("rag content provided")
-
-    prompt_parts = [
-        urls_content
-        if urls_content is not None
-        else "urls content Couldn't be fetched",
-        rag_content if rag_content is not None else "rag content Couldn't be fetched",
-    ]
-    full_prompt = "\n\n".join(prompt_parts)
-
-    response_stream = client.stream_chat(
-        system_prompt=None,
-        user_query=prompt,
-        other_prompt_content=full_prompt,
-        model="gpt-oss:120b-cloud",
-    )
-
+    # helper function to save messages while streaming
     async def stream_with_storage(
         stream: AsyncGenerator[str, None],
     ) -> AsyncGenerator[str, None]:
@@ -185,6 +173,62 @@ async def stream_text_to_text(
                     conversation_id=conversation.id,
                 )
             )
+
+    # Manually fetch content using extracted service functions
+    urls_content = await fetch_urls_content(prompt)
+    rag_content = await fetch_rag_content(prompt)
+
+    if not prompt:
+        logger.warning("No prompt provided")
+    else:
+        logger.info("prompt provided")
+    if urls_content is None:
+        logger.warning("No urls content provided")
+    else:
+        logger.info("url content provided")
+    if rag_content is None:
+        logger.warning("No rag content provided")
+    else:
+        logger.info("rag content provided")
+
+    prompt_parts = [
+        urls_content
+        if urls_content is not None
+        else "urls content Couldn't be fetched",
+        rag_content if rag_content is not None else "rag content Couldn't be fetched",
+    ]
+    full_prompt = "\n\n".join(prompt_parts)
+
+    guard_result = await guardrail.is_topic_allowed(prompt)
+    if not guard_result.classification:
+        logger.warning("Topical guardrail triggered")
+
+        await MessageRepository(session).create(
+            MessageCreate.model_construct(
+                url_content=urls_content,
+                rag_content=rag_content,
+                request_content=prompt,
+                response_content="sorry but i can't answer this :(",
+                thinking_content="Guardrail Triggered",
+                conversation_id=conversation.id,
+            )
+        )
+
+        async def rejected_stream():
+            yield "data: sorry but i can't answer this :(\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            rejected_stream(),
+            media_type="text/event-stream",
+        )
+
+    response_stream = client.stream_chat(
+        system_prompt=None,
+        user_query=prompt,
+        other_prompt_content=full_prompt,
+        model="gpt-oss:120b-cloud",
+    )
 
     return StreamingResponse(
         stream_with_storage(response_stream),
