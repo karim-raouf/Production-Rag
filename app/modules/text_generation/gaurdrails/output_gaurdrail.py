@@ -27,7 +27,7 @@ class OutputGuardrail:
         api_key: str,
         model: str = "gpt-oss:20b-cloud",
         host: str = "https://ollama.com",
-        timeout: float = 5.0,
+        timeout: float = 8.0,
         fail_open: bool = True,
     ):
         self.aclient = AsyncClient(

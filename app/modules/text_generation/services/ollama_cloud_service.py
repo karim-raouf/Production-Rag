@@ -2,6 +2,7 @@ from ollama import AsyncClient
 import ollama
 from typing import AsyncGenerator
 import asyncio
+from loguru import logger
 
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -31,7 +32,7 @@ class OllamaCloudChatClient:
         user_query: str,
         other_prompt_content: str,
         model: str,
-    ) -> str:
+    ) -> tuple[str | None, str | None]:
         if not system_prompt:
             system_prompt = DEFAULT_SYSTEM_PROMPT
 
@@ -80,7 +81,7 @@ class OllamaCloudChatClient:
                 yield "data: [DONE]\n\n"
 
         except ollama.ResponseError as e:
-            print(f"Ollama Server Error: {e.error}")
+            logger.error(f"Ollama Server Error: {e.error}")
             if e.status_code == 500:
                 yield "Error: The Ollama server crashed. Check server logs or model availability."
             else:
