@@ -99,7 +99,7 @@ async def ollama_text_to_text(
     ]
     full_prompt = "\n\n".join(prompt_parts)
 
-    guard_result = await guardrail.is_topic_allowed(body.prompt)
+    guard_result = await guardrail.is_input_allowed(body.prompt)
     if not guard_result.classification:
         logger.warning("Topical guardrail triggered")
         response = "sorry but i can't answer this :("
@@ -109,7 +109,6 @@ async def ollama_text_to_text(
                 rag_content=rag_content,
                 request_content=body.prompt,
                 response_content=response,
-                thinking_content="Guardrail Triggered",
                 conversation_id=conversation.id,
             )
         )
@@ -199,27 +198,16 @@ async def stream_text_to_text(
     ]
     full_prompt = "\n\n".join(prompt_parts)
 
-    guard_result = await guardrail.is_topic_allowed(prompt)
+    guard_result = await guardrail.is_input_allowed(prompt)
     if not guard_result.classification:
         logger.warning("Topical guardrail triggered")
-
-        await MessageRepository(session).create(
-            MessageCreate.model_construct(
-                url_content=urls_content,
-                rag_content=rag_content,
-                request_content=prompt,
-                response_content="sorry but i can't answer this :(",
-                thinking_content="Guardrail Triggered",
-                conversation_id=conversation.id,
-            )
-        )
 
         async def rejected_stream():
             yield "data: sorry but i can't answer this :(\n\n"
             yield "data: [DONE]\n\n"
 
         return StreamingResponse(
-            rejected_stream(),
+            stream_with_storage(rejected_stream()),
             media_type="text/event-stream",
         )
 
