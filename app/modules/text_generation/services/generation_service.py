@@ -62,7 +62,7 @@ async def generate_text(
             "Failed to parse predictions from vLLM - See server logs for more details"
         )
 
-    # FOR LOCAL MODEL INFERENCE - - - - - - -
+    # FOR HF LOCAL MODEL INFERENCE - - - - - - -
     # prompt = pipe.tokenizer.apply_chat_template(
     #     messages, tokenize=False, add_generation_prompt=True
     # )

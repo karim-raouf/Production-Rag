@@ -4,7 +4,7 @@ from loguru import logger
 from ..schemas import TextToTextRequest
 from fastapi import Body
 
-
+# for streaming as sse uses get request and cant have body in get request
 async def fetch_rag_content(prompt: str):
     try:
         rag_content = await vector_service.search(

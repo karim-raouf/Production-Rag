@@ -28,7 +28,7 @@ router = APIRouter(
 )
 
 
-@router.post("/text-to-text", response_model=TextToTextResponse)
+@router.post("/text-to-text/vllm", response_model=TextToTextResponse)
 async def text_to_text(
     request: Request,
     body: TextToTextRequest = Body(...),
@@ -62,6 +62,59 @@ async def text_to_text(
         prompt, temperature=0.7, vllm_api_key=settings.vllm_api_key
     )  # global_ml_store.get(body.model)
     return TextToTextResponse(result=result)
+
+
+@router.post(
+    "/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse
+)
+async def ollama_text_to_text(
+    conversation: GetConversationDep,
+    session: DBSessionDep,
+    body: TextToTextRequest = Body(...),
+    client: OllamaCloudChatClient = Depends(get_ollama_client),
+):
+    # Manually fetch content using extracted service functions
+    urls_content = await fetch_urls_content(body.prompt)
+    rag_content = await fetch_rag_content(body.prompt)
+
+    if not body.prompt:
+        logger.warning("No prompt provided")
+    else:
+        logger.info("prompt provided")
+    if urls_content is None:
+        logger.warning("No urls content provided")
+    else:
+        logger.info("url content provided")
+    if rag_content is None:
+        logger.warning("No rag content provided")
+    else:
+        logger.info("rag content provided")
+
+    prompt_parts = [
+        urls_content
+        if urls_content is not None
+        else "urls content Couldn't be fetched",
+        rag_content if rag_content is not None else "rag content Couldn't be fetched",
+    ]
+    full_prompt = "\n\n".join(prompt_parts)
+
+    response = await client.ainvoke(
+        system_prompt=None,
+        user_query=body.prompt,
+        other_prompt_content=full_prompt,
+        model="ministral-3:14b-cloud",
+    )
+
+    await MessageRepository(session).create(
+        MessageCreate(
+            url_content=urls_content,
+            rag_content=rag_content,
+            request_content=body.prompt,
+            response_content=response,
+            conversation_id=conversation.id,
+        )
+    )
+    return TextToTextResponse(result=response)
 
 
 @router.get("/stream/text-to-text/{conversation_id}")
@@ -113,7 +166,7 @@ async def stream_text_to_text(
             final_response = "".join(stream_buffer)
 
             final_response = re.sub(r"data: |\n\n|\[DONE\]", "", final_response)
-            
+
             await MessageRepository(session).create(
                 MessageCreate.model_construct(
                     url_content=urls_content,
