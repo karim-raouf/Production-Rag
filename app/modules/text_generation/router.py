@@ -102,7 +102,7 @@ async def ollama_text_to_text(
         system_prompt=None,
         user_query=body.prompt,
         other_prompt_content=full_prompt,
-        model="ministral-3:14b-cloud",
+        model="gpt-oss:20b-cloud",
     )
 
     await MessageRepository(session).create(
@@ -142,7 +142,6 @@ async def stream_text_to_text(
         logger.info("rag content provided")
 
     prompt_parts = [
-        prompt,
         urls_content
         if urls_content is not None
         else "urls content Couldn't be fetched",
@@ -151,21 +150,30 @@ async def stream_text_to_text(
     full_prompt = "\n\n".join(prompt_parts)
 
     response_stream = client.stream_chat(
-        prompt=full_prompt, model="ministral-3:14b-cloud"
+        system_prompt=None,
+        user_query=prompt,
+        other_prompt_content=full_prompt,
+        model="gpt-oss:120b-cloud",
     )
 
     async def stream_with_storage(
         stream: AsyncGenerator[str, None],
     ) -> AsyncGenerator[str, None]:
         stream_buffer = []
+        thinking_buffer = []
         try:
             async for chunk in stream:
-                stream_buffer.append(chunk)
+                if "[THINKING]" in chunk:
+                    thinking_buffer.append(chunk)
+                else:
+                    stream_buffer.append(chunk)
                 yield chunk
         finally:
             final_response = "".join(stream_buffer)
-
             final_response = re.sub(r"data: |\n\n|\[DONE\]", "", final_response)
+
+            final_thinking = "".join(thinking_buffer)
+            final_thinking = re.sub(r"data: |\n\n|\[THINKING\] ?", "", final_thinking)
 
             await MessageRepository(session).create(
                 MessageCreate.model_construct(
@@ -173,6 +181,7 @@ async def stream_text_to_text(
                     rag_content=rag_content,
                     request_content=prompt,
                     response_content=final_response,
+                    thinking_content=final_thinking or None,
                     conversation_id=conversation.id,
                 )
             )

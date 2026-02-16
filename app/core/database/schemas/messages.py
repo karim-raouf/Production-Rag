@@ -9,6 +9,7 @@ class MessageBase(BaseModel):
     rag_content: str | None = None
     request_content: str
     response_content: str
+    thinking_content: str | None = None
     conversation_id: int
     prompt_token: int | None = None
     response_token: int | None = None

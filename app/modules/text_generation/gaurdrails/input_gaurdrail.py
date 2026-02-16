@@ -16,12 +16,13 @@ async def is_topic_allowed(
     2. FastAPI
     3. Building Generative AI systems
     If a topic is allowed, say 'True' otherwise say 'False'
+    dont ever output anything rather than "True" or "False"
     """
     response = await client.ainvoke(
         system_prompt=guardrail_system_prompt,
         user_query=user_query,
         other_prompt_content="",
-        model="ministral-3:14b-cloud",
+        model="gpt-oss:20b-cloud",
         guardrails=False,
     )
-    return TopicalGuardResponse(classification=response)
+    return TopicalGuardResponse(classification=response.strip())

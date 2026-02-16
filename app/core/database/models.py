@@ -13,13 +13,15 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID4] = mapped_column(primary_key=True, default=uuid.uuid4)
-    github_id: Mapped[str | None] = mapped_column(String(length=255), unique=True, index=True)
+    github_id: Mapped[str | None] = mapped_column(
+        String(length=255), unique=True, index=True
+    )
     email: Mapped[str] = mapped_column(String(length=255), unique=True, index=True)
     username: Mapped[str] = mapped_column(String(length=255))
     hashed_password: Mapped[str] = mapped_column(String(length=255))
     is_active: Mapped[bool] = mapped_column(default=True)
     role: Mapped[str] = mapped_column(default="USER")
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), insert_default=func.now()
     )
@@ -99,6 +101,7 @@ class Message(Base):
     rag_content: Mapped[str | None] = mapped_column()
     request_content: Mapped[str] = mapped_column()
     response_content: Mapped[str] = mapped_column()
+    thinking_content: Mapped[str | None] = mapped_column()
     prompt_token: Mapped[int | None] = mapped_column()
     response_token: Mapped[int | None] = mapped_column()
     total_token: Mapped[int | None] = mapped_column()

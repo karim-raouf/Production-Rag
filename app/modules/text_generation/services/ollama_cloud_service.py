@@ -25,6 +25,7 @@ class OllamaCloudChatClient:
                 You are a helpful assistant. use the context provided to answer the question,
                 dont ever create info, if you dont know say i don't know,
             """
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_query + other_prompt_content},
@@ -32,51 +33,72 @@ class OllamaCloudChatClient:
 
         if guardrails:
             guard_task = asyncio.create_task(is_topic_allowed(user_query, self))
-            chat_task = asyncio.create_task(self.aclient.chat(model, messages=messages))
+            chat_task = asyncio.create_task(
+                self.aclient.chat(model, messages=messages, think="medium")
+            )
 
-            while True:
-                done, _ = await asyncio.wait(
-                    [guard_task, chat_task], return_when=asyncio.FIRST_COMPLETED
-                )
-                if guard_task in done:
-                    guard_output = guard_task.result()
-                    if not (allowed := guard_output.classification):
-                        chat_task.cancel()
-                        logger.warning("Topical guardrail triggered")
-                        return "sorry but i can't answer this :("
-                    elif chat_task in done:
-                        return chat_task.result()["message"]["content"]
-                else:
-                    await asyncio.sleep(0.1)
+            # Wait for guard result first
+            guard_output = await guard_task
+            if not guard_output.classification:
+                chat_task.cancel()
+                logger.warning("Topical guardrail triggered")
+                return "sorry but i can't answer this :("
 
-        response = await self.aclient.chat(model, messages=messages)
-        return response["message"]["content"]
+            # Guard passed — wait for chat if not already done
+            chat_result = await chat_task
+            return chat_result["message"]["content"]
+        else:
+            response = await self.aclient.chat(model, messages=messages, think="medium")
+            return response["message"]["content"]
 
     async def stream_chat(
-        self, prompt: str, model: str, stream_mode: str = "sse"
+        self,
+        system_prompt: str | None,
+        user_query: str,
+        other_prompt_content: str,
+        model: str,
+        stream_mode: str = "sse",
     ) -> AsyncGenerator[str, None]:
-        system_prompt = """ 
-            You are a helpful assistant. use the context provided to answer the question,
-            dont ever create info, if you dont have context say i don't know as no context provided,
-        """
+        if not system_prompt:
+            system_prompt = """ 
+                You are a helpful assistant. use the context provided to answer the question,
+                dont ever create info, if you dont have context say i don't know as no context provided,
+            """
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": user_query + other_prompt_content},
         ]
+        guardrail_response = await is_topic_allowed(user_query, self)
+        if not guardrail_response.classification:
+            logger.warning("Topical guardrail triggered")
+            yield (
+                "data: sorry but i can't answer this :(\n\n"
+                if stream_mode == "sse"
+                else "sorry but i can't answer this :("
+            )
+            if stream_mode == "sse":
+                yield "data: [DONE]\n\n"
+            return
         try:
             async for token in await self.aclient.chat(
-                model, messages=messages, stream=True
+                model, messages=messages, stream=True, think="medium"
             ):
-                if token["message"]["content"] is not None:
+                thinking = token["message"].get("thinking")
+                content = token["message"].get("content")
+
+                if thinking:
                     yield (
-                        f"data: {token['message']['content'] or ''}\n\n"
+                        f"data: [THINKING] {thinking}\n\n"
                         if stream_mode == "sse"
-                        else token["message"]["content"]
+                        else f"[THINKING] {thinking}"
                     )
                     await asyncio.sleep(0.01)
+                if content:
+                    yield (f"data: {content}\n\n" if stream_mode == "sse" else content)
+                    await asyncio.sleep(0.01)
             if stream_mode == "sse":
-                yield f"data: [DONE]\n\n"
+                yield "data: [DONE]\n\n"
 
         except ollama.ResponseError as e:
             print(f"Ollama Server Error: {e.error}")
