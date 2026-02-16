@@ -1,6 +1,6 @@
 # Production Ready RAG System
 
-A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, document ingestion, and multi-provider auth.
+A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation) capabilities, real-time web scraping, document ingestion, security guardrails, and multi-provider auth.
 
 ---
 
@@ -10,13 +10,50 @@ A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation)
 - **RAG Pipeline** — Retrieval-Augmented Generation using Qdrant vector database
 - **Web Scraping** — Real-time URL content extraction and integration into prompts
 - **Document Ingestion** — PDF upload and processing for knowledge base enrichment
+- **Security Guardrails** — Dual-layer LLM-based safety system (input + output) with score-based classification
 - **Conversation Management** — Persistent conversation history with PostgreSQL
 - **Multi-Model Support** — Integration with VLLM and Ollama backends
-- **JWT auth** — Secure JWT-based auth with token revocation support
+- **JWT Auth** — Secure JWT-based auth with token revocation support
 - **GitHub OAuth** — Sign in with GitHub via OAuth 2.0 with CSRF protection
 - **Session Management** — Server-side session middleware for OAuth flows and token storage
 - **Request Monitoring** — HTTP middleware that logs every request to CSV with timing and status
 - **CORS Support** — Configurable Cross-Origin Resource Sharing middleware
+
+---
+
+## 🛡️ Security Guardrails
+
+The system implements a **dual-layer guardrail architecture** using a dedicated LLM classifier that runs independently from the main chat model.
+
+### Input Guardrail
+
+Analyzes user queries **before** they reach the chat model. Detects:
+- Prompt injection & jailbreak attempts
+- System prompt extraction attacks
+- Code injection & shell command execution
+- Social engineering & harmful content requests
+
+Returns `True` (safe) or `False` (unsafe). Runs **concurrently** with URL/RAG content fetching via `asyncio.create_task` — if the guardrail rejects, pending fetch tasks are cancelled immediately.
+
+### Output Guardrail
+
+Analyzes the AI-generated response **after** generation, using a **score-based system** (1-10):
+
+| Score | Severity   | Action                            |
+| ----- | ---------- | --------------------------------- |
+| 1-3   | Safe       | Allowed                           |
+| 4-6   | Suspicious | Allowed (below default threshold) |
+| 7-8   | Unsafe     | Blocked                           |
+| 9-10  | Critical   | Blocked                           |
+
+Checks for: leaked system instructions, harmful content, sensitive data exposure, bypassed safety, and manipulation.
+
+- **Non-streaming endpoint** — Blocks unsafe responses and returns a safe static message. Original response is saved to DB for auditing.
+- **Streaming endpoint** — Runs after the stream completes. If unsafe, sends `[RETRACTED]` event to the client.
+
+### Fail-Open Design
+
+Both guardrails are configured with `fail_open=True` by default — if the guardrail times out or errors, the request is **allowed** to proceed. This prevents guardrail failures from blocking the entire service.
 
 ---
 
@@ -25,7 +62,6 @@ A FastAPI-based AI text generation API with RAG (Retrieval-Augmented Generation)
 ```
 app/
 ├── main.py                         # FastAPI entry point, middleware, router wiring
-├── basic_auth_depricated.py        # Legacy basic auth (deprecated)
 ├── core/
 │   ├── config.py                   # Application settings (Pydantic BaseSettings)
 │   ├── logging.py                  # Request logging to CSV via Loguru
@@ -70,10 +106,14 @@ app/
 │   ├── text_generation/
 │   │   ├── router.py               # API endpoints (POST, SSE, WebSocket)
 │   │   ├── schemas.py              # Request/response schemas
-│   │   ├── dependencies.py         # Ollama client dependency
+│   │   ├── dependencies.py         # Annotated FastAPI deps (client, guardrails)
+│   │   ├── gaurdrails/
+│   │   │   ├── schema.py           # InputGuardResponse & OutputGuardResponse
+│   │   │   ├── input_gaurdrail.py  # InputGuardrail class (True/False classification)
+│   │   │   └── output_gaurdrail.py # OutputGuardrail class (1-10 score classification)
 │   │   ├── services/
 │   │   │   ├── generation_service.py  # VLLM-based generation
-│   │   │   ├── ollama_cloud_service.py # Ollama streaming client
+│   │   │   ├── ollama_cloud_service.py # Ollama chat client (invoke + streaming)
 │   │   │   └── stream.py           # WebSocket connection manager
 │   │   ├── rag/
 │   │   │   ├── dependencies.py     # RAG content dependency
@@ -168,7 +208,7 @@ app/
 
 ## 📚 API Endpoints
 
-### auth (Public)
+### Auth (Public)
 | Method | Endpoint         | Description                |
 | ------ | ---------------- | -------------------------- |
 | `POST` | `/auth/register` | Register a new user        |
@@ -187,11 +227,12 @@ app/
 | `GET`  | `/api/health` | Check API and model status |
 
 ### Text Generation (Protected)
-| Method | Endpoint                                                     | Description            |
-| ------ | ------------------------------------------------------------ | ---------------------- |
-| `POST` | `/api/text-generation/text-to-text`                          | Generate text response |
-| `GET`  | `/api/text-generation/stream/text-to-text/{conversation_id}` | Stream response (SSE)  |
-| `WS`   | `/api/text-generation/ws/text-to-text`                       | WebSocket streaming    |
+| Method | Endpoint                                                     | Description                        |
+| ------ | ------------------------------------------------------------ | ---------------------------------- |
+| `POST` | `/api/text-generation/text-to-text/vllm`                     | Generate text via VLLM             |
+| `POST` | `/api/text-generation/text-to-text/ollama/{conversation_id}` | Generate text via Ollama (guarded) |
+| `GET`  | `/api/text-generation/stream/text-to-text/{conversation_id}` | Stream response via SSE (guarded)  |
+| `WS`   | `/api/text-generation/ws/text-to-text`                       | WebSocket streaming                |
 
 ### Document Ingestion (Protected)
 | Method | Endpoint                            | Description         |
@@ -207,11 +248,11 @@ app/
 
 ---
 
-## 🔐 auth
+## 🔐 Auth
 
 The API supports **two auth methods**: JWT Bearer Token and GitHub OAuth 2.0. All `/api/*` endpoints are protected.
 
-### JWT auth Flow
+### JWT Auth Flow
 
 1. **Register** a new user:
    ```bash
@@ -275,12 +316,12 @@ The API supports **two auth methods**: JWT Bearer Token and GitHub OAuth 2.0. Al
 
 The application uses **SQLAlchemy 2.0** async ORM with **PostgreSQL** and **Alembic** for migrations.
 
-| Model          | Table           | Key Fields                                                                                           |
-| -------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
-| `User`         | `users`         | `id` (UUID), `github_id`, `email`, `username`, `hashed_password`, `role`                             |
-| `Token`        | `tokens`        | `id` (UUID), `user_id`, `expires_at`, `is_active`, `ip_address`                                      |
-| `Conversation` | `conversations` | `id`, `user_id`, `title`, `model_type`                                                               |
-| `Message`      | `messages`      | `id`, `conversation_id`, `request_content`, `response_content`, `url_content`, `rag_content`, tokens |
+| Model          | Table           | Key Fields                                                                                                               |
+| -------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `User`         | `users`         | `id` (UUID), `github_id`, `email`, `username`, `hashed_password`, `role`, `is_active`                                    |
+| `Token`        | `tokens`        | `id` (UUID), `user_id`, `expires_at`, `is_active`, `ip_address`                                                          |
+| `Conversation` | `conversations` | `id`, `user_id`, `title`, `model_type`                                                                                   |
+| `Message`      | `messages`      | `id`, `conversation_id`, `request_content`, `response_content`, `thinking_content`, `url_content`, `rag_content`, tokens |
 
 All models include `created_at` and `updated_at` timestamps.
 
@@ -323,6 +364,18 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
+### Dependency Injection Pattern
+
+The text generation module uses **`Annotated` type aliases** for clean dependency injection:
+
+```python
+OllamaClientDep   = Annotated[OllamaCloudChatClient, Depends(get_ollama_client)]
+InputGuardrailDep  = Annotated[InputGuardrail, Depends(get_input_guardrail)]
+OutputGuardrailDep = Annotated[OutputGuardrail, Depends(get_output_guardrail)]
+```
+
+Each guardrail is a standalone class with its own `AsyncClient`, injected via FastAPI's `Depends()` — fully decoupled from the chat service.
+
 ### Middleware Stack
 
 The application applies middleware in the following order:
@@ -336,7 +389,8 @@ The application applies middleware in the following order:
 The application uses **Loguru** for structured logging:
 - Request logs are written to `system_logs/` as CSV files
 - Application logs include request IDs for tracing
-- auth errors are logged at `ERROR` level for debugging
+- Auth errors are logged at `ERROR` level for debugging
+- Guardrail decisions are logged with classification details (score, threshold, allowed status)
 
 ---
 
