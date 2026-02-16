@@ -240,6 +240,6 @@ async def ws_text_to_text(
         logger.info("Client disconnected")
     except Exception as e:
         logger.error(f"Error: {e}")
-        await ws_manager.send(ws, f"an internal error occured!")
+        await ws_manager.send(ws, "an internal error occured!")
     finally:
         await ws_manager.disconnect(ws)
