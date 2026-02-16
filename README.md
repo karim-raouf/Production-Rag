@@ -107,10 +107,10 @@ app/
 │   │   ├── router.py               # API endpoints (POST, SSE, WebSocket)
 │   │   ├── schemas.py              # Request/response schemas
 │   │   ├── dependencies.py         # Annotated FastAPI deps (client, guardrails)
-│   │   ├── gaurdrails/
+│   │   ├── guardrails/
 │   │   │   ├── schema.py           # InputGuardResponse & OutputGuardResponse
-│   │   │   ├── input_gaurdrail.py  # InputGuardrail class (True/False classification)
-│   │   │   └── output_gaurdrail.py # OutputGuardrail class (1-10 score classification)
+│   │   │   ├── input_guardrail.py  # InputGuardrail class (True/False classification)
+│   │   │   └── output_guardrail.py # OutputGuardrail class (1-10 score classification)
 │   │   ├── services/
 │   │   │   ├── generation_service.py  # VLLM-based generation
 │   │   │   ├── ollama_cloud_service.py # Ollama chat client (invoke + streaming)

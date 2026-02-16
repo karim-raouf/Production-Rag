@@ -63,18 +63,21 @@ async def text_to_text(
     return TextToTextResponse(result=result)
 
 
-
-@router.post("/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse)
+@router.post(
+    "/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse
+)
 async def ollama_text_to_text(
     conversation: GetConversationDep,
     session: DBSessionDep,
     client: OllamaClientDep,
     input_guardrail: InputGuardrailDep,
-    output_gaurdrail: OutputGuardrailDep,
+    output_guardrail: OutputGuardrailDep,
     body: TextToTextRequest = Body(...),
 ):
     # Manually fetch content using extracted service functions
-    input_guard_task = asyncio.create_task(input_guardrail.is_input_allowed(body.prompt))
+    input_guard_task = asyncio.create_task(
+        input_guardrail.is_input_allowed(body.prompt)
+    )
     urls_content_task = asyncio.create_task(fetch_urls_content(body.prompt))
     rag_content_task = asyncio.create_task(fetch_rag_content(body.prompt))
 
@@ -127,7 +130,7 @@ async def ollama_text_to_text(
         other_prompt_content=full_prompt,
         model="gpt-oss:120b-cloud",
     )
-    output_allowed = await output_gaurdrail.is_output_allowed(response)
+    output_allowed = await output_guardrail.is_output_allowed(response)
     if output_allowed.classification:
         await MessageRepository(session).create(
             MessageCreate(
@@ -162,7 +165,7 @@ async def stream_text_to_text(
     session: DBSessionDep,
     client: OllamaClientDep,
     input_guardrail: InputGuardrailDep,
-    output_gaurdrail: OutputGuardrailDep,
+    output_guardrail: OutputGuardrailDep,
     prompt: str = Query(...),
 ) -> StreamingResponse:
     # helper function to save messages while streaming
@@ -183,7 +186,7 @@ async def stream_text_to_text(
 
             # Stream complete — run output guardrail before response closes
             final_response = re.sub(r"data: |\n\n|\[DONE\]", "", "".join(stream_buffer))
-            output_guard_result = await output_gaurdrail.is_output_allowed(
+            output_guard_result = await output_guardrail.is_output_allowed(
                 final_response
             )
             output_allowed = output_guard_result.classification

@@ -1,10 +1,9 @@
 from fastapi import Depends
 from app.core.config import AppSettings, get_settings
 from .services.ollama_cloud_service import OllamaCloudChatClient
-from .gaurdrails.input_gaurdrail import InputGuardrail
-from .gaurdrails.output_gaurdrail import OutputGuardrail
+from .guardrails.input_guardrail import InputGuardrail
+from .guardrails.output_guardrail import OutputGuardrail
 from typing import Annotated
-
 
 
 def get_ollama_client(
