@@ -46,12 +46,14 @@ class TokenService(TokenRepository):
     async def deactivate(self, token_id: UUID4) -> None:
         await self.update(token_id, TokenUpdate(is_active=False))
 
-    def decode(self, encoded_token: str) -> dict:
+    @staticmethod
+    def decode(encoded_token: str) -> dict:
         try:
+            settings = get_settings()
             return jwt.decode(
                 encoded_token,
-                self.settings.jwt_secret_key,
-                algorithms=[self.settings.jwt_algorithm],
+                settings.jwt_secret_key,
+                algorithms=[settings.jwt_algorithm],
             )
         except JWTError as e:
             logger.error(f"decode: JWT decode failed - {type(e).__name__}: {e}")
