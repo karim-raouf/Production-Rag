@@ -3,7 +3,7 @@ from .schema import UploadResponse
 from .service import save_file, process_and_store_document
 from typing import Annotated
 from app.core.config import AppSettings, get_settings
-
+from app.core.api_limiter import limiter
 
 router = APIRouter(
     prefix="/assets/documents",
@@ -12,6 +12,7 @@ router = APIRouter(
 
 
 @router.post("/upload_file", response_model=UploadResponse)
+@limiter.limit("5/minute")
 async def file_upload_controller(
     file: Annotated[UploadFile, File(description="Uploaded pdf document")],
     settings: Annotated[AppSettings, Depends(get_settings)],

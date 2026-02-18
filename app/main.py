@@ -28,6 +28,10 @@ from app.modules.text_generation.infrastructure.model_lifecycle import (
 # from .basic_auth import AuthenticatedUserDep
 from .modules.auth.dependencies import get_current_user_dep
 from .modules.auth.router import router as auth_router
+from .core.api_limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 
 
 @asynccontextmanager
@@ -41,6 +45,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Session Middleware - needed for OAuth (e.g. GitHub) to store state
 app.add_middleware(
@@ -134,5 +141,5 @@ def health_check():
 @app.get("/")
 def home():
     return {
-        "status": "at homw",
+        "status": "at home",
     }

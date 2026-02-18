@@ -19,6 +19,7 @@ from .rag.dependencies import get_rag_content, fetch_rag_content
 from app.core.config import AppSettings, get_settings
 from app.modules.text_generation.services.stream import ws_manager
 from loguru import logger
+from app.core.api_limiter import limiter
 
 router = APIRouter(
     prefix="/text-generation",
@@ -27,6 +28,7 @@ router = APIRouter(
 
 
 @router.post("/text-to-text/vllm", response_model=TextToTextResponse)
+@limiter.limit("1/minute")
 async def text_to_text(
     request: Request,
     body: TextToTextRequest = Body(...),
@@ -65,6 +67,7 @@ async def text_to_text(
 @router.post(
     "/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse
 )
+@limiter.limit("1/minute")
 async def ollama_text_to_text(
     conversation: GetConversationDep,
     session: DBSessionDep,
@@ -159,6 +162,7 @@ async def ollama_text_to_text(
 
 
 @router.get("/stream/text-to-text/{conversation_id}")
+@limiter.limit("1/minute")
 async def stream_text_to_text(
     conversation: GetConversationDep,
     session: DBSessionDep,
