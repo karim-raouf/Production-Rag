@@ -59,7 +59,7 @@ class OllamaCloudChatClient:
         ]
 
         try:
-            async for token in self.aclient.chat(
+            async for token in await self.aclient.chat(
                 model, messages=messages, stream=True, think="medium"
             ):
                 thinking = token["message"].get("thinking")

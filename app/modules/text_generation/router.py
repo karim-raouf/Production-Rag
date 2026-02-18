@@ -184,7 +184,7 @@ async def stream_text_to_text(
                 yield f"event: {chunk_type}\ndata: {chunk_text}\n\n"
 
             # Stream complete — run output guardrail before response closes
-            final_response = " ".join(stream_buffer)
+            final_response = "".join(stream_buffer)
             output_guard_result = await output_guardrail.is_output_allowed(
                 final_response
             )
@@ -194,9 +194,9 @@ async def stream_text_to_text(
                 yield "event: retracted\ndata: I'm unable to provide this response due to safety concerns.\n\n"
         finally:
             if not final_response:
-                final_response = " ".join(stream_buffer)
+                final_response = "".join(stream_buffer)
 
-            final_thinking = " ".join(thinking_buffer)
+            final_thinking = "".join(thinking_buffer)
 
             await MessageRepository(session).create(
                 MessageCreate.model_construct(
