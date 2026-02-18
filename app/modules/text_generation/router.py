@@ -19,7 +19,6 @@ from .rag.dependencies import get_rag_content, fetch_rag_content
 from app.core.config import AppSettings, get_settings
 from app.modules.text_generation.services.stream import ws_manager
 from loguru import logger
-import re
 
 router = APIRouter(
     prefix="/text-generation",
@@ -177,32 +176,27 @@ async def stream_text_to_text(
         output_allowed = True
         final_response = ""
         try:
-            async for chunk in stream:
-                if "[THINKING]" in chunk:
-                    thinking_buffer.append(chunk)
-                else:
-                    stream_buffer.append(chunk)
-                yield chunk
+            async for chunk_type, chunk_text in stream:
+                if chunk_type == "thinking":
+                    thinking_buffer.append(chunk_text)
+                elif chunk_type == "content":
+                    stream_buffer.append(chunk_text)
+                yield f"event: {chunk_type}\ndata: {chunk_text}\n\n"
 
             # Stream complete — run output guardrail before response closes
-            final_response = re.sub(r"data: |\n\n|\[DONE\]", "", "".join(stream_buffer))
+            final_response = " ".join(stream_buffer)
             output_guard_result = await output_guardrail.is_output_allowed(
                 final_response
             )
             output_allowed = output_guard_result.classification
             if not output_allowed:
                 logger.warning("Output guardrail triggered — retracting response")
-                yield "data: [RETRACTED]\n\n"
-                yield "data: I'm unable to provide this response due to safety concerns.\n\n"
+                yield "event: retracted\ndata: I'm unable to provide this response due to safety concerns.\n\n"
         finally:
             if not final_response:
-                final_response = re.sub(
-                    r"data: |\n\n|\[DONE\]", "", "".join(stream_buffer)
-                )
+                final_response = " ".join(stream_buffer)
 
-            final_thinking = re.sub(
-                r"data: |\n\n|\[THINKING\] ?", "", "".join(thinking_buffer)
-            )
+            final_thinking = " ".join(thinking_buffer)
 
             await MessageRepository(session).create(
                 MessageCreate.model_construct(
@@ -241,9 +235,7 @@ async def stream_text_to_text(
         )
 
         async def rejected_stream():
-            yield "data: [THINKING] Input Guardrail Triggered\n\n"
-            yield "data: sorry but i can't answer this :(\n\n"
-            yield "data: [DONE]\n\n"
+            yield "event: rejected\ndata: sorry but i can't answer this :(\n\n"
 
         return StreamingResponse(
             rejected_stream(),
@@ -324,15 +316,13 @@ async def ws_text_to_text(
             ]
             other_prompt_content = "\n\n".join(prompt_parts)
 
-            async for chunk in client.stream_chat(
+            async for chunk_type, chunk_text in client.stream_chat(
                 system_prompt=None,
                 user_query=user_query,
                 other_prompt_content=other_prompt_content,
                 model="qwen3-vl:235b-instruct-cloud",
-                stream_mode="ws",
             ):
-                await ws_manager.send(ws, chunk)
-                await asyncio.sleep(0.05)
+                await ws_manager.send(ws, {"type": chunk_type, "data" : chunk_text})
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")
