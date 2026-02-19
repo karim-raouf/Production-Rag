@@ -9,6 +9,7 @@ from ...core.database.dependencies import DBSessionDep
 from ...core.database.repositories import MessageRepository
 from ...core.database.schemas import MessageCreate
 from ...core.database.routers.conversations.dependencies import GetConversationDep
+from fastapi_limiter.depends import RateLimiter
 
 
 from typing import AsyncGenerator
@@ -19,16 +20,24 @@ from .rag.dependencies import get_rag_content, fetch_rag_content
 from app.core.config import AppSettings, get_settings
 from app.modules.text_generation.services.stream import ws_manager
 from loguru import logger
-from app.core.api_limiter import limiter
+from pyrate_limiter import Duration, Rate, Limiter
+from ...core.api_limiter import get_user_id
+
 
 router = APIRouter(
     prefix="/text-generation",
     tags=["Text Generation"],
+    dependencies=[
+        Depends(
+            RateLimiter(
+                limiter=Limiter(Rate(3, Duration.MINUTE)), identifier=get_user_id
+            )
+        )
+    ],
 )
 
 
 @router.post("/text-to-text/vllm", response_model=TextToTextResponse)
-@limiter.limit("1/minute")
 async def text_to_text(
     request: Request,
     body: TextToTextRequest = Body(...),
@@ -67,7 +76,6 @@ async def text_to_text(
 @router.post(
     "/text-to-text/ollama/{conversation_id}", response_model=TextToTextResponse
 )
-@limiter.limit("1/minute")
 async def ollama_text_to_text(
     conversation: GetConversationDep,
     session: DBSessionDep,
@@ -162,7 +170,6 @@ async def ollama_text_to_text(
 
 
 @router.get("/stream/text-to-text/{conversation_id}")
-@limiter.limit("1/minute")
 async def stream_text_to_text(
     conversation: GetConversationDep,
     session: DBSessionDep,
@@ -299,9 +306,6 @@ async def ws_text_to_text(
             # Manually fetch content using extracted service functions
             urls_content = await fetch_urls_content(user_query)
             rag_content = await fetch_rag_content(user_query)
-            logger.info(f"Received Body Prompt: {user_query}")
-            logger.info(f"Received URLs Content: {urls_content}")
-            logger.info(f"Received RAG Content: {rag_content}")
 
             if not user_query:
                 logger.warning("No prompt provided")
@@ -326,7 +330,7 @@ async def ws_text_to_text(
                 other_prompt_content=other_prompt_content,
                 model="qwen3-vl:235b-instruct-cloud",
             ):
-                await ws_manager.send(ws, {"type": chunk_type, "data" : chunk_text})
+                await ws_manager.send(ws, {"type": chunk_type, "data": chunk_text})
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")

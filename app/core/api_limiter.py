@@ -1,11 +1,10 @@
-from slowapi import Limiter
-from starlette.requests import Request
+from fastapi import Request
 from .database.services import TokenService
 
-def get_user_id_key(request: Request):
+
+async def get_user_id(request: Request):
     if token := request.session.get("access_token"):
         try:
-            
             payload = TokenService().decode(token)
             if user_id := payload.get("sub"):
                 return user_id
@@ -13,6 +12,3 @@ def get_user_id_key(request: Request):
             pass
 
     return request.client.host
-
-
-limiter = Limiter(key_func=get_user_id_key)

@@ -42,7 +42,7 @@ AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 async def get_current_user_dep(token: AuthTokenDep, auth_service: AuthServiceDep):
     return await auth_service.get_current_user(token)
 
-# Dependency to get the current authenticated user
+
 CurrentUserDep = Annotated[User, Depends(get_current_user_dep)]
 
 

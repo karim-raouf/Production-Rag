@@ -13,15 +13,10 @@ app = APIRouter(prefix="/messages")
 
 @app.get("")
 async def list_messages_controller(
-    session: DBSessionDep, 
-    current_user: CurrentUserDep,
-    skip: int = 0, 
-    take: int = 25
+    session: DBSessionDep, current_user: CurrentUserDep, skip: int = 0, take: int = 25
 ) -> list[MessageOut]:
     messages = await MessageRepository(session).get_all(
-        user_id=current_user.id, 
-        skip=skip, 
-        take=take
+        user_id=current_user.id, skip=skip, take=take
     )
     return [MessageOut.model_validate(m) for m in messages]
 
@@ -42,9 +37,9 @@ async def create_message_controller(
 @app.put("/{message_id}", status_code=status.HTTP_202_ACCEPTED)
 async def update_message_controller(
     current_user: CurrentUserDep,
-    session: DBSessionDep, 
-    message: GetMessageDep, 
-    updated_message: MessageUpdate
+    session: DBSessionDep,
+    message: GetMessageDep,
+    updated_message: MessageUpdate,
 ) -> MessageOut:
     updated_message = await MessageRepository(session).update(message, updated_message)
     return MessageOut.model_validate(updated_message)

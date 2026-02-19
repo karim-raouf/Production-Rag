@@ -1,22 +1,39 @@
-from fastapi import APIRouter, HTTPException, status, File, UploadFile, Depends, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    status,
+    File,
+    UploadFile,
+    Depends,
+    BackgroundTasks,
+)
 from .schema import UploadResponse
 from .service import save_file, process_and_store_document
 from typing import Annotated
 from app.core.config import AppSettings, get_settings
-from app.core.api_limiter import limiter
+from app.core.api_limiter import get_user_id
+from pyrate_limiter import Duration, Rate, Limiter
+from fastapi_limiter.depends import RateLimiter
+
 
 router = APIRouter(
     prefix="/assets/documents",
     tags=["Document Ingestion"],
+    dependencies=[
+        Depends(
+            RateLimiter(
+                limiter=Limiter(Rate(5, Duration.MINUTE)), identifier=get_user_id
+            )
+        )
+    ],
 )
 
 
 @router.post("/upload_file", response_model=UploadResponse)
-@limiter.limit("5/minute")
 async def file_upload_controller(
     file: Annotated[UploadFile, File(description="Uploaded pdf document")],
     settings: Annotated[AppSettings, Depends(get_settings)],
-    bg_text_processor: BackgroundTasks
+    bg_text_processor: BackgroundTasks,
 ):
     if file.content_type != "application/pdf":
         raise HTTPException(
@@ -26,10 +43,7 @@ async def file_upload_controller(
 
     try:
         filepath = await save_file(file=file, settings=settings)
-        bg_text_processor.add_task(
-            process_and_store_document,
-            filepath
-        )
+        bg_text_processor.add_task(process_and_store_document, filepath)
 
     except Exception as e:
         raise HTTPException(
