@@ -2,7 +2,7 @@ from ollama import AsyncClient
 import ollama
 from typing import AsyncGenerator
 from loguru import logger
-
+import asyncio
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a helpful assistant. Follow these rules strictly:\n"
@@ -20,10 +20,12 @@ DEFAULT_SYSTEM_PROMPT = (
 
 
 class OllamaCloudChatClient:
-    def __init__(self, api_key: str, host: str = "https://ollama.com"):
+    def __init__(self, api_key: str, host: str = "https://ollama.com", throttle_rate:int = 0.1):
         self.aclient = AsyncClient(
             host=host, headers={"Authorization": "Bearer " + api_key}
         )
+        self.throttle_rate = throttle_rate
+
 
     async def ainvoke(
         self,
@@ -62,6 +64,7 @@ class OllamaCloudChatClient:
             async for token in await self.aclient.chat(
                 model, messages=messages, stream=True, think="medium"
             ):
+                asyncio.sleep(self.throttle_rate)
                 thinking = token["message"].get("thinking")
                 content = token["message"].get("content")
 

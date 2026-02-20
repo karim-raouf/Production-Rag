@@ -5,12 +5,12 @@ from .services.generation_service import generate_text
 from .dependencies import OllamaClientDep, InputGuardrailDep, OutputGuardrailDep
 from fastapi.websockets import WebSocket, WebSocketDisconnect
 import asyncio
+from loguru import logger
 from ...core.database.dependencies import DBSessionDep
 from ...core.database.repositories import MessageRepository
 from ...core.database.schemas import MessageCreate
 from ...core.database.routers.conversations.dependencies import GetConversationDep
-from fastapi_limiter.depends import RateLimiter
-
+from .dependencies import limit_text_gen
 
 from typing import AsyncGenerator
 
@@ -19,21 +19,13 @@ from .scraping.dependencies import get_urls_content, fetch_urls_content
 from .rag.dependencies import get_rag_content, fetch_rag_content
 from app.core.config import AppSettings, get_settings
 from app.modules.text_generation.services.stream import ws_manager
-from loguru import logger
-from pyrate_limiter import Duration, Rate, Limiter
-from ...core.api_limiter import get_user_id
+
 
 
 router = APIRouter(
     prefix="/text-generation",
     tags=["Text Generation"],
-    dependencies=[
-        Depends(
-            RateLimiter(
-                limiter=Limiter(Rate(3, Duration.MINUTE)), identifier=get_user_id
-            )
-        )
-    ],
+    dependencies=[Depends(limit_text_gen)],
 )
 
 

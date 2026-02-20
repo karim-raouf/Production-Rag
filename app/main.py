@@ -5,7 +5,6 @@ from fastapi import FastAPI, Request, APIRouter, Depends
 # Fix for asyncpg on Windows
 if platform.system() == "Windows":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-from contextlib import asynccontextmanager
 import time
 from uuid import uuid4
 from starlette.background import BackgroundTask
@@ -15,29 +14,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.ml import global_ml_store
-from app.core.logging import write_log_to_csv, setup_logging
 from app.modules.text_generation.router import router as text_gen_router
 from app.modules.document_ingestion.router import router as doc_ingestion_router
 from app.core.database.routers import conversations_router, messages_router
 from .modules.auth.oauth import oauth_router
-from app.modules.text_generation.infrastructure.model_lifecycle import (
-    load_models_at_startup,
-    clear_models_at_shutdown,
-)
+from app.core.logging import write_log_to_csv
+
 
 # from .basic_auth import AuthenticatedUserDep
 from .modules.auth.dependencies import get_current_user_dep
 from .modules.auth.router import router as auth_router
+from .lifespan import lifespan
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    setup_logging()
-    load_models_at_startup()
 
-    yield
-
-    clear_models_at_shutdown()
 
 
 app = FastAPI(lifespan=lifespan)

@@ -11,21 +11,16 @@ from .schema import UploadResponse
 from .service import save_file, process_and_store_document
 from typing import Annotated
 from app.core.config import AppSettings, get_settings
-from app.core.api_limiter import get_user_id
-from pyrate_limiter import Duration, Rate, Limiter
-from fastapi_limiter.depends import RateLimiter
+from .dependencies import limit_docs_ingestion
+
+
+
 
 
 router = APIRouter(
     prefix="/assets/documents",
     tags=["Document Ingestion"],
-    dependencies=[
-        Depends(
-            RateLimiter(
-                limiter=Limiter(Rate(5, Duration.MINUTE)), identifier=get_user_id
-            )
-        )
-    ],
+    dependencies=[Depends(limit_docs_ingestion)],
 )
 
 
