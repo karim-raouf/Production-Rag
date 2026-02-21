@@ -46,6 +46,17 @@ async def get_current_user_dep(token: AuthTokenDep, auth_service: AuthServiceDep
 CurrentUserDep = Annotated[User, Depends(get_current_user_dep)]
 
 
+def get_current_admin_user(current_user: CurrentUserDep):
+    if current_user.role != "Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough privileges"
+        )
+    return current_user
+    
+CurrentAdminUserDep = Annotated[User, Depends(get_current_admin_user)]
+
+
 def get_user_service(session: DBSessionDep):
     return UserService(session)
 

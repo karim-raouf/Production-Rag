@@ -26,12 +26,10 @@ async def get_user_id(request: Request):
     return request.client.host
 
 
+
+
 text_limiter: Limiter = None
 docs_limiter: Limiter = None
-
-
-
-
 
 class UserBucketFactory(BucketFactory):
     def __init__(

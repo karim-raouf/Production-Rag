@@ -11,7 +11,7 @@ async def fetch_rag_content(prompt: str):
             collection_name="KnowledgeBase",
             query_vector=embed(prompt),
             retrieval_limit=3,
-            score_threshold=0.1,
+            score_threshold=0.3,
         )
 
         rag_content_str = "\n".join([c.payload["original_text"] for c in rag_content])

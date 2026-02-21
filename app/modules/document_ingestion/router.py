@@ -12,7 +12,7 @@ from .service import save_file, process_and_store_document
 from typing import Annotated
 from app.core.config import AppSettings, get_settings
 from .dependencies import limit_docs_ingestion
-
+from ..auth.dependencies import get_current_admin_user
 
 
 
@@ -20,7 +20,7 @@ from .dependencies import limit_docs_ingestion
 router = APIRouter(
     prefix="/assets/documents",
     tags=["Document Ingestion"],
-    dependencies=[Depends(limit_docs_ingestion)],
+    dependencies=[Depends(limit_docs_ingestion), Depends(get_current_admin_user)],
 )
 
 
