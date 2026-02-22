@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.models import Distance, PointStruct
 from app.core.config import get_settings
@@ -30,7 +31,12 @@ class CacheClient:
         self, query_vector: list[float], documents: list[str]
     ) -> None:
         point = PointStruct(
-            id=str(uuid.uuid4()), vector=query_vector, payload={"documents": documents}
+            id=str(uuid.uuid4()),
+            vector=query_vector,
+            payload={
+                "documents": documents,
+                "created_at": datetime.now(timezone.utc).timestamp(),
+            },
         )
 
         await self.caching_db_client.upsert(
@@ -41,7 +47,12 @@ class CacheClient:
         self, query_vector: list[float], response: str
     ) -> None:
         point = PointStruct(
-            id=str(uuid.uuid4()), vector=query_vector, payload={"response": response}
+            id=str(uuid.uuid4()),
+            vector=query_vector,
+            payload={
+                "response": response,
+                "created_at": datetime.now(timezone.utc).timestamp(),
+            },
         )
 
         await self.caching_db_client.upsert(
@@ -53,7 +64,7 @@ class CacheClient:
             collection_name=self.doc_cache_collection,
             query=query_vector,
             limit=1,
-            score_threshold=0.95
+            score_threshold=0.95,
         )
         if result.points:
             return result.points[0].payload["documents"]
@@ -62,12 +73,36 @@ class CacheClient:
 
     async def search_response_cache(self, query_vector: list[float]) -> str | None:
         result = await self.caching_db_client.query_points(
-            collection_name=self.response_cache_collection, 
+            collection_name=self.response_cache_collection,
             query=query_vector,
             limit=1,
-            score_threshold=0.98
+            score_threshold=0.98,
         )
         if result.points:
             return result.points[0].payload["response"]
 
         return None
+
+    async def delete_expired(self, ttl_seconds: int = 86400) -> None:
+        """
+        Deletes points older than the TTL (default 24 hours).
+        """
+        expiration_time = datetime.now(timezone.utc).timestamp() - ttl_seconds
+
+        filter_condition = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="created_at",
+                    range=models.Range(lt=expiration_time),
+                )
+            ]
+        )
+
+        await self.caching_db_client.delete(
+            collection_name=self.doc_cache_collection, points_selector=filter_condition
+        )
+
+        await self.caching_db_client.delete(
+            collection_name=self.response_cache_collection,
+            points_selector=filter_condition,
+        )
