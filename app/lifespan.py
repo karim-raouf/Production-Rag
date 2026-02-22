@@ -7,17 +7,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from redis.asyncio import Redis
 from .core.api_limiters import init_limiters
-
+from .modules.text_generation.caching.caching_client import CacheClient
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global redis_client
     redis_client = Redis.from_url("redis://localhost:6379", decode_responses=True)
     await init_limiters(redis_client)
+    await CacheClient().init_caching_db()
     setup_logging()
     load_models_at_startup()
 
     yield
-
+    
     await redis_client.aclose()
     clear_models_at_shutdown()

@@ -19,7 +19,7 @@ from .scraping.dependencies import get_urls_content, fetch_urls_content
 from .rag.dependencies import get_rag_content, fetch_rag_content
 from app.core.config import AppSettings, get_settings
 from app.modules.text_generation.services.stream import ws_manager
-
+from .caching.semantic_caching_service import semantic_cache_service
 
 
 router = APIRouter(
@@ -76,18 +76,39 @@ async def ollama_text_to_text(
     output_guardrail: OutputGuardrailDep,
     body: TextToTextRequest = Body(...),
 ):
-    # Manually fetch content using extracted service functions
+    (
+        cache_type,
+        cache_response,
+        query_embedding,
+    ) = await semantic_cache_service.cache_check(body.prompt)
+
+    # 2. IMMEDIATE RETURN: If we have a full response, skip everything else!
+    if cache_type == "response":
+        await MessageRepository(session).create(
+            MessageCreate(
+                url_content=None,
+                rag_content=None,
+                request_content=body.prompt,
+                response_content=cache_response,
+                thinking_content="Can't be viewed",
+                conversation_id=conversation.id,
+            )
+        )
+        return TextToTextResponse(result=cache_response)
+    # 3. CONCURRENCY: Start guardrail and RAG fetch at the exact same time (if needed)
     input_guard_task = asyncio.create_task(
         input_guardrail.is_input_allowed(body.prompt)
     )
-    urls_content_task = asyncio.create_task(fetch_urls_content(body.prompt))
-    rag_content_task = asyncio.create_task(fetch_rag_content(body.prompt))
 
+    # Only create a task to fetch from Qdrant if we don't already have the documents
+    if cache_type != "documents":
+        rag_content_task = asyncio.create_task(fetch_rag_content(query_embedding))
+    # 4. Check guardrail result
     input_guard_result = await input_guard_task
     if not input_guard_result.classification:
-        urls_content_task.cancel()
-        rag_content_task.cancel()
-
+        # Cancel the Qdrant DB search if it was running
+        if cache_type != "documents":
+            rag_content_task.cancel()
         logger.warning("Topical guardrail triggered")
         response = "sorry but i can't answer this :("
         await MessageRepository(session).create(
@@ -101,42 +122,34 @@ async def ollama_text_to_text(
             )
         )
         return TextToTextResponse(result=response)
-
-    urls_content = await urls_content_task
-    rag_content = await rag_content_task
-
-    if not body.prompt:
-        logger.warning("No prompt provided")
+    # 5. Get the documents (either from our cache hit, or await the Qdrant fetch task)
+    if cache_type == "documents":
+        rag_content = cache_response
     else:
-        logger.info("prompt provided")
-    if urls_content is None:
-        logger.warning("No urls content provided")
-    else:
-        logger.info("url content provided")
-    if rag_content is None:
-        logger.warning("No rag content provided")
-    else:
-        logger.info("rag content provided")
-
-    prompt_parts = [
-        urls_content
-        if urls_content is not None
-        else "urls content Couldn't be fetched",
-        rag_content if rag_content is not None else "rag content Couldn't be fetched",
-    ]
-    full_prompt = "\n\n".join(prompt_parts)
-
+        rag_content = await rag_content_task
+    # 6. Generate final response
     response, thinking = await client.ainvoke(
         system_prompt=None,
         user_query=body.prompt,
-        other_prompt_content=full_prompt,
+        other_prompt_content=rag_content,
         model="gpt-oss:120b-cloud",
     )
+
     output_allowed = await output_guardrail.is_output_allowed(response)
     if output_allowed.classification:
+        if cache_type != "response":
+            await semantic_cache_service.insert_response_cache(
+                query_vector=query_embedding, response=response
+            )
+
+        if cache_type != "documents":
+            await semantic_cache_service.insert_doc_cache(
+                query_vector=query_embedding, documents=rag_content
+            )
+
         await MessageRepository(session).create(
             MessageCreate(
-                url_content=urls_content,
+                url_content=None,
                 rag_content=rag_content,
                 request_content=body.prompt,
                 response_content=response,
@@ -150,7 +163,7 @@ async def ollama_text_to_text(
         new_response = "I'm unable to provide this response due to safety concerns."
         await MessageRepository(session).create(
             MessageCreate(
-                url_content=urls_content,
+                url_content=None,
                 rag_content=rag_content,
                 request_content=body.prompt,
                 response_content=response,
@@ -170,9 +183,41 @@ async def stream_text_to_text(
     output_guardrail: OutputGuardrailDep,
     prompt: str = Query(...),
 ) -> StreamingResponse:
+    # 1. Check the semantic cache first
+    (
+        cache_type,
+        cache_response,
+        query_embedding,
+    ) = await semantic_cache_service.cache_check(prompt)
+
+    # 2. IMMEDIATE RETURN: If we have a full response in cache, skip everything else!
+    if cache_type == "response":
+        await MessageRepository(session).create(
+            MessageCreate.model_construct(
+                url_content=None,
+                rag_content=None,
+                request_content=prompt,
+                response_content=cache_response,
+                thinking_content="Served from cache",
+                conversation_id=conversation.id,
+            )
+        )
+
+        async def cached_stream():
+            for chunk in cache_response.split(" "):
+                yield f"event: content\ndata: {chunk} \n\n"
+
+        return StreamingResponse(
+            cached_stream(),
+            media_type="text/event-stream",
+            headers={"X-Accel-Buffering": "no"},
+        )
+
     # helper function to save messages while streaming
     async def stream_with_storage(
         stream: AsyncGenerator[str, None],
+        final_rag_content: str | None,
+        q_embedding: list[float],
     ) -> AsyncGenerator[str, None]:
         stream_buffer = []
         thinking_buffer = []
@@ -195,6 +240,17 @@ async def stream_text_to_text(
             if not output_allowed:
                 logger.warning("Output guardrail triggered — retracting response")
                 yield "event: retracted\ndata: I'm unable to provide this response due to safety concerns.\n\n"
+            else:
+                # Insert into cache since output is allowed
+                if cache_type != "response":
+                    await semantic_cache_service.insert_response_cache(
+                        query_vector=q_embedding, response=final_response
+                    )
+
+                if cache_type != "documents" and final_rag_content is not None:
+                    await semantic_cache_service.insert_doc_cache(
+                        query_vector=q_embedding, documents=final_rag_content
+                    )
         finally:
             if not final_response:
                 final_response = "".join(stream_buffer)
@@ -203,8 +259,8 @@ async def stream_text_to_text(
 
             await MessageRepository(session).create(
                 MessageCreate.model_construct(
-                    url_content=urls_content,
-                    rag_content=rag_content,
+                    url_content=None,
+                    rag_content=final_rag_content,
                     request_content=prompt,
                     response_content=final_response,
                     thinking_content=final_thinking
@@ -214,15 +270,20 @@ async def stream_text_to_text(
                 )
             )
 
-    # Manually fetch content using extracted service functions
+    # 3. CONCURRENCY: Start guardrail and RAG fetch at the exact same time
     input_guard_task = asyncio.create_task(input_guardrail.is_input_allowed(prompt))
-    urls_content_task = asyncio.create_task(fetch_urls_content(prompt))
-    rag_content_task = asyncio.create_task(fetch_rag_content(prompt))
+    # urls_content_task = asyncio.create_task(fetch_urls_content(prompt))
 
+    # Only create a task to fetch from Qdrant if we don't already have the documents
+    if cache_type != "documents":
+        rag_content_task = asyncio.create_task(fetch_rag_content(prompt))
+
+    # 4. Check guardrail result
     input_guard_result = await input_guard_task
     if not input_guard_result.classification:
-        urls_content_task.cancel()
-        rag_content_task.cancel()
+        # urls_content_task.cancel()
+        if cache_type != "documents":
+            rag_content_task.cancel()
 
         logger.warning("Topical guardrail triggered")
 
@@ -245,30 +306,34 @@ async def stream_text_to_text(
             media_type="text/event-stream",
         )
 
-    urls_content = await urls_content_task
-    rag_content = await rag_content_task
+    # 5. Get the documents (either from our cache hit, or await the Qdrant fetch task)
+    if cache_type == "documents":
+        rag_content = cache_response
+    else:
+        rag_content = await rag_content_task
 
     if not prompt:
         logger.warning("No prompt provided")
     else:
         logger.info("prompt provided")
-    if urls_content is None:
-        logger.warning("No urls content provided")
-    else:
-        logger.info("url content provided")
+    # if urls_content is None:
+    #     logger.warning("No urls content provided")
+    # else:
+    #     logger.info("url content provided")
     if rag_content is None:
         logger.warning("No rag content provided")
     else:
         logger.info("rag content provided")
 
     prompt_parts = [
-        urls_content
-        if urls_content is not None
-        else "urls content Couldn't be fetched",
+        # urls_content
+        # if urls_content is not None
+        # else "urls content Couldn't be fetched",
         rag_content if rag_content is not None else "rag content Couldn't be fetched",
     ]
     full_prompt = "\n\n".join(prompt_parts)
 
+    # 6. Generate final response
     response_stream = client.stream_chat(
         system_prompt=None,
         user_query=prompt,
@@ -277,7 +342,7 @@ async def stream_text_to_text(
     )
 
     return StreamingResponse(
-        stream_with_storage(response_stream),
+        stream_with_storage(response_stream, rag_content, query_embedding),
         media_type="text/event-stream",
         headers={
             "X-Accel-Buffering": "no",  # Disable nginx buffering

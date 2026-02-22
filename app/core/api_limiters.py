@@ -68,7 +68,7 @@ async def init_limiters(redis: Redis):
     script_hash = await redis.script_load(LuaScript.PUT_ITEM)
 
     text_factory = UserBucketFactory(
-        redis, [Rate(1, Duration.MINUTE)], "bucket:text-generation", script_hash
+        redis, [Rate(3, Duration.MINUTE)], "bucket:text-generation", script_hash
     )
     docs_factory = UserBucketFactory(
         redis, [Rate(5, Duration.MINUTE)], "bucket:docs-ingestion", script_hash

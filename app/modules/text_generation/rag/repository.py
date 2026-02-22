@@ -3,12 +3,12 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import ScoredPoint
 import uuid
-from app.core.config import get_settings, AppSettings
+from app.core.config import get_settings
 
 
 class VectorRepository:
-    def __init__(self, settings: AppSettings = None) -> None:
-        self.settings = settings or get_settings()
+    def __init__(self) -> None:
+        self.settings = get_settings()
         self.db_client = AsyncQdrantClient(
             host=self.settings.qdrant_host, port=self.settings.qdrant_port
         )

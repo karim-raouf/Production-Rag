@@ -11,8 +11,11 @@ class AppSettings(BaseSettings):
     rag_chunk_size: Annotated[int, Field(alias="RAG_CHUNK_SIZE")]
     embed_size: Annotated[int, Field(alias="EMBEDDING_SIZE")]
 
-    qdrant_host: Annotated[str, Field(alias="QDRANT_HOST")]
-    qdrant_port: Annotated[int, Field(alias="QDRANT_PORT")]
+    qdrant_host: Annotated[str, Field(alias="QDRANT_DOC_HOST")]
+    qdrant_port: Annotated[int, Field(alias="QDRANT_DOC_PORT")]
+
+    qdrant_caching_host: Annotated[str, Field(alias="QDRANT_CACHING_HOST")]
+    qdrant_caching_port: Annotated[int, Field(alias="QDRANT_CACHING_PORT")]
 
     vllm_api_key: Annotated[str, Field(alias="VLLM_API_KEY")]
     ollama_api_key: Annotated[str, Field(alias="OLLAMA_API_KEY")]
