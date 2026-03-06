@@ -333,12 +333,20 @@ All models include `created_at` and `updated_at` timestamps.
 generataion_webscraping_practice/
 ├── app/                    # Application source code
 ├── alembic/                # Database migrations
+├── tests/                  # Unit tests (pytest)
+│   ├── conftest.py         # Shared fixtures (mock DB, fake user, test client)
+│   ├── test_schemas.py     # Pydantic schema validation tests
+│   ├── test_password_service.py  # Password hashing & verification tests
+│   ├── test_auth_service.py      # Auth service tests (register, login, token)
+│   ├── test_guardrails.py        # Input guardrail classification tests
+│   └── test_conversation_endpoints.py  # API endpoint tests (CRUD)
 ├── uploads/                # Uploaded documents (gitignored)
 ├── dbstorage/              # Local database storage (gitignored)
 ├── qdrant_storage/         # Qdrant data (gitignored)
 ├── system_logs/            # Request logs (gitignored)
 ├── .env.example            # Environment template
 ├── alembic.ini             # Alembic configuration
+├── pytest.ini              # Pytest configuration
 ├── .gitignore              # Git ignore rules
 └── README.md               # This file
 ```
@@ -351,6 +359,37 @@ generataion_webscraping_practice/
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```
+
+### Testing
+
+The project uses **pytest** with **pytest-asyncio** for async tests and **pytest-mock** for mocking.
+
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio pytest-mock httpx
+
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run a specific test file
+pytest tests/test_schemas.py -v
+
+# Run a specific test class
+pytest tests/test_auth_service.py::TestRegisterUser -v
+```
+
+| Test File                        | What It Tests                                    | Concepts Used                              |
+| -------------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| `test_schemas.py`                | Pydantic schema validation                       | `pytest.raises`, Arrange-Act-Assert        |
+| `test_password_service.py`       | Bcrypt hashing & verification                    | `async` tests                              |
+| `test_auth_service.py`           | Registration, login, token validation            | `mocker.AsyncMock()`, `mocker.MagicMock()` |
+| `test_guardrails.py`             | Input classification, timeouts, fail-open/closed | Mocking external APIs                      |
+| `test_conversation_endpoints.py` | Conversations CRUD API                           | `httpx.AsyncClient`, `mocker.patch()`      |
+
+> **Note:** All tests run in-memory with mocked dependencies — no PostgreSQL, Qdrant, or LLM instance required.
 
 ### Database Migrations
 ```bash
